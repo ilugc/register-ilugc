@@ -1,0 +1,10 @@
+FROM docker.io/golang:latest as builder
+
+RUN --mount=type=bind,source=/,target=/register-ilugc,rw cd /register-ilugc && make && cp src/cmd/register-ilugc /usr/bin/register-ilugc
+
+FROM docker.io/alpine:latest
+COPY --from=builder /usr/bin/register-ilugc /usr/bin/register-ilugc
+VOLUME ["/data"]
+EXPOSE 2203
+WORKDIR /data
+ENTRYPOINT ["/usr/bin/register-ilugc"]

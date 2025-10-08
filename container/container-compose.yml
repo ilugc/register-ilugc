@@ -1,0 +1,14 @@
+services:
+  register-ilugc:
+    container_name: register-ilugc
+    image: register-ilugc:latest
+    ports:
+      - 2203:2203
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+    build:
+      context: ../
+      dockerfile: container/Containerfile
+      tags:
+        - register-ilugc
