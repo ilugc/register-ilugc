@@ -8,7 +8,6 @@ Service to gather registration details.
 
 Use the following command to install requirement in Ubuntu
 ```console
-```
 sudo apt install -y make golang-go
 ```
 
