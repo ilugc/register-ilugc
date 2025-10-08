@@ -1,6 +1,6 @@
 ### Register Ilugc
 
-Project to gather registration details.
+Service to gather registration details.
 
 #### Run
 1. Clone this repo
