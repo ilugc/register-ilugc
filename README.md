@@ -5,10 +5,11 @@ Service to gather registration details.
 #### Requirements
 1. GNU Make
 2. Golang
+3. Podman-Compose (optional)
 
 Use the following command to install requirement in Ubuntu
 ```console
-sudo apt install -y make golang-go
+sudo apt install -y make golang-go podman-compose
 ```
 
 #### Run
