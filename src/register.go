@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 )
 
 type RegisterIlugc struct {
@@ -213,7 +214,7 @@ global.submit.addEventListener("click", (event) => {
 			Mobile: body["mobile"].(string),
 		}
 		G.logger.Println(participant)
-		self.Csv.Write([]string{participant.Name, participant.Email, participant.Mobile})
+		self.Csv.Write([]string{time.Now().Local().String(), participant.Name, participant.Email, participant.Mobile})
 		self.Csv.Flush()
 	})
 	if err := self.Server.ListenAndServe(); err != nil {
