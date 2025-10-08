@@ -93,6 +93,10 @@ func (self *RegisterIlugc) Run() error {
         <input id="participant_email" />
         <label>Mobile</label>
         <input id="participant_mobile" />
+		<label>Place</label>
+		<input id="participant_place" type="text", placeholder="eg: Velachery" />
+		<label>College/Company Name</label>
+		<input id="participant_org" type="text" />
         <input id="submit" type="button" value="submit" />
         <label id="status"></label>
       </div>
@@ -140,18 +144,32 @@ global.submit.addEventListener("click", (event) => {
 	showMessage("invalid mobile number");
 	return;
     }
+	pplace = document.getElementById("participant_place");
+	if (pplace.value.length < 0
+	|| /^[A-Za-z ]+$/.test(pplace.value) == false) {
+	showMessage("invalid place");
+	return;
+	}
+	porg = document.getElementById("participant_org");
+	if (porg.value.length < 0
+	|| /^[A-Za-z ]+$/.test(porg.value) == false) {
+	showMessage("invalid organization");
+	return;
+	}
 
     fetch("/register", {
 	method: "POST",
 	header: {
 	    "Content-Type": "application/json"
 	},
-	body: JSON.stringify({name: pname.value, email: pemail.value, mobile: pmobile.value})
+	body: JSON.stringify({name: pname.value, email: pemail.value, mobile: pmobile.value, place: pplace.value, org: porg.value})
     }).then((response) => {
 	if (response.status === 200) {
 	    pname.value = '';
 	    pemail.value = '';
 	    pmobile.value = '';
+	    pplace.value = '';
+	    porg.value = '';
 	    showMessage("registration successful");
 	}
 	else {
@@ -207,14 +225,18 @@ global.submit.addEventListener("click", (event) => {
 			Name string `json:"name"`
 			Email string `json:"email"`
 			Mobile string `json:"mobile"`
+			Place string `json:"place"`
+			Org string `json:"org"`
 		}
 		participant := &Participant{
 			Name: body["name"].(string),
 			Email: body["email"].(string),
 			Mobile: body["mobile"].(string),
+			Place: body["place"].(string),
+			Org: body["org"].(string),
 		}
 		G.logger.Println(participant)
-		self.Csv.Write([]string{time.Now().Local().String(), participant.Name, participant.Email, participant.Mobile})
+		self.Csv.Write([]string{time.Now().Local().String(), participant.Name, participant.Email, participant.Mobile, participant.Place, participant.Org})
 		self.Csv.Flush()
 	})
 	if err := self.Server.ListenAndServe(); err != nil {
