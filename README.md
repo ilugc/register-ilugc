@@ -2,6 +2,16 @@
 
 Service to gather registration details.
 
+#### Requirements
+1. GNU Make
+2. Golang
+
+Use the following command to install requirement in Ubuntu
+```console
+```
+sudo apt install -y make golang-go
+```
+
 #### Run
 1. Clone this repo
 2. From the Cloned directory, run following command, this will build `src/cmd/register-ilugc` binary
