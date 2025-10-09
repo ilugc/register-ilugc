@@ -1,6 +1,7 @@
 package register_ilugc
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -8,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -24,13 +27,13 @@ func CreateRegisterIlugc(address string) *RegisterIlugc {
 	if len(address) > 0 {
 		self.Address = address
 	}
+	self.Server = &http.Server{
+		Addr: self.Address,
+	}
 	return self
 }
 
 func (self *RegisterIlugc) Init() error {
-	self.Server = &http.Server{
-		Addr: self.Address,
-	}
 	CsvFile, err := os.OpenFile("participants.csv", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644);
 	if err != nil {
 		G.logger.Println(err)
@@ -239,7 +242,20 @@ global.submit.addEventListener("click", (event) => {
 		self.Csv.Write([]string{time.Now().Local().String(), participant.Name, participant.Email, participant.Mobile, participant.Org, participant.Place})
 		self.Csv.Flush()
 	})
-	if err := self.Server.ListenAndServe(); err != nil {
+
+	go func() {
+		if err := self.Server.ListenAndServe(); err != nil {
+			G.logger.Println(err)
+			return
+		}
+	}()
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	G.logger.Println("Received Sinal", <-sig);
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+	if err := self.Server.Shutdown(ctx); err != nil {
 		G.logger.Println(err)
 		return err
 	}
