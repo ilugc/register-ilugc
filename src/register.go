@@ -1,6 +1,7 @@
 package register_ilugc
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -8,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -24,13 +27,13 @@ func CreateRegisterIlugc(address string) *RegisterIlugc {
 	if len(address) > 0 {
 		self.Address = address
 	}
+	self.Server = &http.Server{
+		Addr: self.Address,
+	}
 	return self
 }
 
 func (self *RegisterIlugc) Init() error {
-	self.Server = &http.Server{
-		Addr: self.Address,
-	}
 	CsvFile, err := os.OpenFile("participants.csv", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644);
 	if err != nil {
 		G.logger.Println(err)
@@ -105,6 +108,47 @@ func (self *RegisterIlugc) Run() error {
   </body>
 </html>
 `
+		html_closed := `
+<html>
+  <head>
+    <style>
+      body,canvas {
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+      }
+      #registerform {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          height: 100%;
+      }
+      #fieldsdiv {
+          display: grid;
+          grid-template-columns: 1fr 2fr;
+      }
+      #submit, #status, #title {
+          grid-column: 1 / -1;
+      }
+      #title, #status {
+	  text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="registerform">
+      <div id="fieldsdiv">
+        <label id="title">Registration Closed. Maximum participants reached, register early for next month meet.</label>
+      </div>
+    </div>
+  </body>
+</html>
+`
+		if _, err := os.Stat("max_reached"); err == nil {
+			response.Write([]byte(html_closed))
+			return
+		}
 		response.Write([]byte(html))
 	})
 
@@ -191,6 +235,13 @@ global.submit.addEventListener("click", (event) => {
 			return
 		}
 
+		if _, err := os.Stat("max_reached"); err == nil {
+			err := errors.New("Registration Closed. Maximum participants reached, register early for next month meet.")
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		stat, err := self.CsvFile.Stat()
 		if err != nil {
 			err := errors.New("cannot stat CsvFile")
@@ -239,7 +290,20 @@ global.submit.addEventListener("click", (event) => {
 		self.Csv.Write([]string{time.Now().Local().String(), participant.Name, participant.Email, participant.Mobile, participant.Org, participant.Place})
 		self.Csv.Flush()
 	})
-	if err := self.Server.ListenAndServe(); err != nil {
+
+	go func() {
+		if err := self.Server.ListenAndServe(); err != nil {
+			G.logger.Println(err)
+			return
+		}
+	}()
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	G.logger.Println("Received Sinal", <-sig);
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+	if err := self.Server.Shutdown(ctx); err != nil {
 		G.logger.Println(err)
 		return err
 	}
