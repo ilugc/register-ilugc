@@ -108,6 +108,47 @@ func (self *RegisterIlugc) Run() error {
   </body>
 </html>
 `
+		html_closed := `
+<html>
+  <head>
+    <style>
+      body,canvas {
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+      }
+      #registerform {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          height: 100%;
+      }
+      #fieldsdiv {
+          display: grid;
+          grid-template-columns: 1fr 2fr;
+      }
+      #submit, #status, #title {
+          grid-column: 1 / -1;
+      }
+      #title, #status {
+	  text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="registerform">
+      <div id="fieldsdiv">
+        <label id="title">Registration Closed. Maximum participants reached, register early for next month meet.</label>
+      </div>
+    </div>
+  </body>
+</html>
+`
+		if _, err := os.Stat("max_reached"); err == nil {
+			response.Write([]byte(html_closed))
+			return
+		}
 		response.Write([]byte(html))
 	})
 
@@ -189,6 +230,13 @@ global.submit.addEventListener("click", (event) => {
 	http.HandleFunc("/register", func(response http.ResponseWriter, request *http.Request) {
 		if request.Method != "POST" {
 			err := errors.New("request must be POST")
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if _, err := os.Stat("max_reached"); err == nil {
+			err := errors.New("Registration Closed. Maximum participants reached, register early for next month meet.")
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
