@@ -2,229 +2,109 @@ package register_ilugc
 
 import (
 	"context"
-	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"syscall"
 	"time"
 )
 
-type RegisterIlugc struct {
-	Address string
-	Server *http.Server
-	CsvFile *os.File
-	Csv *csv.Writer
+type Participant struct {
+	Name string `json:"name"`
+	Email string `json:"email"`
+	Mobile string `json:"mobile"`
+	Org string `json:"org"`
+	Place string `json:"place"`
+	QrCode []byte `json:"qrcode"`
+	Time string `json:"time"`
 }
 
-func CreateRegisterIlugc(address string) *RegisterIlugc {
+type RegisterIlugc struct {
+	Domain string
+	Hostport string
+	Static string
+	Server *http.Server
+	Db *Db
+	Qr *Qr
+}
+
+func CreateRegisterIlugc(hostport string, static string) *RegisterIlugc {
 	self := &RegisterIlugc{}
-	self.Address = ":2203"
-	if len(address) > 0 {
-		self.Address = address
+
+	self.Domain = "register.ilugc.in"
+	self.Hostport = ":2203"
+	if len(hostport) > 0 {
+		self.Hostport = hostport
 	}
+
+	self.Static = "static"
+	if len(static) > 0 {
+		self.Static = static
+	}
+
 	self.Server = &http.Server{
-		Addr: self.Address,
+		Addr: self.Hostport,
 	}
+
+	self.Db = CreateDb()
+	self.Qr = CreateQr()
 	return self
 }
 
 func (self *RegisterIlugc) Init() error {
-	CsvFile, err := os.OpenFile("participants.csv", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644);
-	if err != nil {
+	if err := self.Db.Init(); err != nil {
 		G.logger.Println(err)
 		return err
 	}
-	self.CsvFile = CsvFile
-	self.Csv = csv.NewWriter(self.CsvFile)
+	if err := self.Qr.Init(); err != nil {
+		G.logger.Println(err)
+		return err
+	}
 	return nil
 }
 
 func (self *RegisterIlugc) Close() {
-	if self.Csv != nil {
-		self.Csv.Flush()
+	db, err := self.Db.Db.DB()
+	if err != nil {
+		G.logger.Println(err)
+		return
 	}
-	if self.CsvFile != nil {
-		self.CsvFile.Close()
-		self.CsvFile = nil
+	if err := db.Close(); err != nil {
+		G.logger.Println(err)
 	}
+}
+
+func (self *RegisterIlugc) MaxReached() bool {
+	return false;
+}
+
+func StructToMap(v any) map[string]string {
+	vmap := make(map[string]string)
+	typeof := reflect.TypeOf(v)
+	valueof := reflect.ValueOf(v)
+	for index := 0; index < valueof.NumField(); index++ {
+		typef := typeof.Field(index)
+		valuef := valueof.Field(index)
+		switch valuef.Kind() {
+		case reflect.String: {
+			vmap[typef.Name] = valuef.String()
+		}
+		}
+	}
+	return vmap
 }
 
 func (self *RegisterIlugc) Run() error {
 	defer self.Close()
 
 	http.HandleFunc("/", func(response http.ResponseWriter, request *http.Request) {
-		html := `
-<html>
-  <head>
-    <style>
-      body,canvas {
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-      }
-      #registerform {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          height: 100%;
-      }
-      #fieldsdiv {
-          display: grid;
-          grid-template-columns: 1fr 2fr;
-      }
-      #submit, #status, #title {
-          grid-column: 1 / -1;
-      }
-      #title, #status {
-	  text-align: center;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="registerform">
-      <div id="fieldsdiv">
-        <label id="title">ILUGC Monthly Meet Register Form</label>
-        <label>Name</label>
-        <input id="participant_name" />
-        <label>Email</label>
-        <input id="participant_email" />
-        <label>Mobile</label>
-        <input id="participant_mobile" />
-	<label>College/Company Name</label>
-	<input id="participant_org" type="text" />
-	<label>Place</label>
-	<input id="participant_place" type="text", placeholder="eg: Velachery" />
-        <input id="submit" type="button" value="submit" />
-        <label id="status"></label>
-      </div>
-    </div>
-    <script src="/register.js"></script>
-  </body>
-</html>
-`
-		html_closed := `
-<html>
-  <head>
-    <style>
-      body,canvas {
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-      }
-      #registerform {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          height: 100%;
-      }
-      #fieldsdiv {
-          display: grid;
-          grid-template-columns: 1fr 2fr;
-      }
-      #submit, #status, #title {
-          grid-column: 1 / -1;
-      }
-      #title, #status {
-	  text-align: center;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="registerform">
-      <div id="fieldsdiv">
-        <label id="title">Registration Closed. Maximum participants reached, register early for next month meet.</label>
-      </div>
-    </div>
-  </body>
-</html>
-`
-		if _, err := os.Stat("max_reached"); err == nil {
-			response.Write([]byte(html_closed))
-			return
-		}
-		response.Write([]byte(html))
-	})
-
-	http.HandleFunc("/register.js", func(response http.ResponseWriter, request *http.Request) {
-		registerjs := `
-let global = {
-    submit: document.getElementById("submit"),
-    status: document.getElementById("status")
-}
-
-let showMessage = function(error) {
-    global.submit.focus();
-    global.status.innerText = error;
-}
-
-global.submit.addEventListener("focusout", (event) => {
-    global.status.innerText = "";
-});
-
-global.submit.addEventListener("click", (event) => {
-    pname = document.getElementById("participant_name");
-    if (pname.value.length < 0
-	|| /^[A-Za-z ]+$/.test(pname.value) == false) {
-	showMessage("invalid name");
-	return;
-    }
-    pemail = document.getElementById("participant_email");
-    if (pemail.value.length < 0	||
-	/@/.test(pemail.value) == false) {
-	showMessage("invalid email");
-	return;
-    }
-    pmobile = document.getElementById("participant_mobile");
-    if (pmobile.value.length < 10
-	|| pmobile.value.length > 13
-	|| /^[+0-9]+$/.test(pmobile.value) == false) {
-	showMessage("invalid mobile number");
-	return;
-    }
-    porg = document.getElementById("participant_org");
-    if (porg.value.length < 0
-	|| /^[A-Za-z0-9 ]+$/.test(porg.value) == false) {
-	showMessage("invalid organization");
-	return;
-    }
-    pplace = document.getElementById("participant_place");
-    if (pplace.value.length < 0
-	|| /^[A-Za-z ]+$/.test(pplace.value) == false) {
-	showMessage("invalid place");
-	return;
-    }
-
-    fetch("/register", {
-	method: "POST",
-	header: {
-	    "Content-Type": "application/json"
-	},
-	body: JSON.stringify({name: pname.value, email: pemail.value, mobile: pmobile.value, org: porg.value, place: pplace.value})
-    }).then((response) => {
-	if (response.status === 200) {
-	    pname.value = '';
-	    pemail.value = '';
-	    pmobile.value = '';
-	    porg.value = '';
-	    pplace.value = '';
-	    showMessage("registration successful");
-	}
-	else {
-	    showMessage("registration failed, try later");
-	}
-    }, () => {
-	showMessage("registration failed, try later");
-    })
-})
-`
-		response.Write([]byte(registerjs))
+		http.ServeFile(response, request, fmt.Sprint(self.Static, request.URL.Path))
 	})
 
 	http.HandleFunc("/register", func(response http.ResponseWriter, request *http.Request) {
@@ -235,24 +115,8 @@ global.submit.addEventListener("click", (event) => {
 			return
 		}
 
-		if _, err := os.Stat("max_reached"); err == nil {
+		if self.MaxReached() == true {
 			err := errors.New("Registration Closed. Maximum participants reached, register early for next month meet.")
-			G.logger.Println(err)
-			http.Error(response, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		stat, err := self.CsvFile.Stat()
-		if err != nil {
-			err := errors.New("cannot stat CsvFile")
-			G.logger.Println(err)
-			http.Error(response, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if stat.Size() > (1024 * 1024 * 512) {
-			msg := fmt.Sprint("filesize ", stat.Size(),  " greater than 512MB")
-			err := errors.New(msg)
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
@@ -272,23 +136,114 @@ global.submit.addEventListener("click", (event) => {
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
-		type Participant struct {
-			Name string `json:"name"`
-			Email string `json:"email"`
-			Mobile string `json:"mobile"`
-			Org string `json:"org"`
-			Place string `json:"place"`
-		}
+
 		participant := &Participant{
 			Name: body["name"].(string),
 			Email: body["email"].(string),
 			Mobile: body["mobile"].(string),
 			Org: body["org"].(string),
 			Place: body["place"].(string),
+			Time: time.Now().UTC().Format(time.RFC3339),
+			QrCode: nil,
 		}
-		G.logger.Println(participant)
-		self.Csv.Write([]string{time.Now().Local().String(), participant.Name, participant.Email, participant.Mobile, participant.Org, participant.Place})
-		self.Csv.Flush()
+
+		chksum, err := self.Db.Chksum(participant)
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		qrbuffer, err := self.Qr.Gen(self.Domain + "/participant/" + chksum)
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		participant.QrCode = qrbuffer.Bytes()
+		if err := self.Db.Write(participant); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		type RegisterResp struct {
+			Chksum string `json:"chksum"`
+		}
+		respbody, err := json.Marshal(&RegisterResp{Chksum: chksum})
+		if err != nil {
+			err := errors.New("failed to generate response body")
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		response.Write(respbody)
+	})
+
+	http.HandleFunc("/max_reached", func(response http.ResponseWriter, request *http.Request) {
+		type MaxReached struct {
+			MaxReached bool `json:"max_reached"`
+		}
+		body, err := json.Marshal(&MaxReached{MaxReached: self.MaxReached()})
+		if err != nil {
+			err := errors.New("failed to generate response body")
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		response.Write(body)
+	})
+
+	http.HandleFunc("/participant/{chksum}", func(response http.ResponseWriter, request *http.Request) {
+		chksum := request.PathValue("chksum")
+		participant, err := self.Db.Read(chksum)
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		participantmap := StructToMap(*participant)
+		
+		type ParticipantResp struct {
+			ParticipantMap map[string]string
+			UnregisterUrl string
+			QrCodeUrl string
+		}
+		participantresp := &ParticipantResp{ParticipantMap: participantmap, UnregisterUrl: "/delete/" + chksum, QrCodeUrl: "/qr/" + chksum}
+		tmpl := template.Must(template.ParseFiles(self.Static + "/participant.tmpl"))
+		if err := tmpl.Execute(response, participantresp); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+	})
+
+	http.HandleFunc("/delete/{chksum}", func(response http.ResponseWriter, request *http.Request) {
+		chksum := request.PathValue("chksum")
+		err := self.Db.Delete(chksum)
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		tmpl := template.Must(template.ParseFiles(self.Static + "/unregister.tmpl"))
+		if err := tmpl.Execute(response, nil); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+	})
+
+	http.HandleFunc("/qr/{chksum}", func(response http.ResponseWriter, request *http.Request) {
+		chksum := request.PathValue("chksum")
+		participant, err := self.Db.Read(chksum)
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		response.Header().Set("Content-Type", "image/png")
+		response.Write(participant.QrCode)
 	})
 
 	go func() {

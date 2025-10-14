@@ -1,0 +1,19 @@
+#gdiv {
+    grid-template-columns: 2fr 2fr;
+}
+
+#title, #qrlink, #delete, #print {
+    grid-column: 1 / -1;
+    text-align: center;
+}
+
+#qr {
+    width: 25vw;
+    aspect-ratio: 1 / 1;
+}
+
+@media print {
+    .hide-on-print {
+	display: none;
+    }
+}

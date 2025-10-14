@@ -7,11 +7,16 @@ import (
 )
 
 func main() {
-	address := ""
+	hostport := ""
+	static := ""
+
 	if len(os.Args) > 1 {
-		address = os.Args[1]
+		hostport = os.Args[1]
 	}
-	register := register_ilugc.CreateRegisterIlugc(address)
+	if len(os.Args) > 2 {
+		static = os.Args[2]
+	}
+	register := register_ilugc.CreateRegisterIlugc(hostport, static)
 	if err := register.Init(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
