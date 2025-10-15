@@ -2,6 +2,7 @@ package register_ilugc
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,27 +11,17 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"reflect"
-	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
-
-type Participant struct {
-	Name string `json:"name"`
-	Email string `json:"email"`
-	Mobile string `json:"mobile"`
-	Org string `json:"org"`
-	Place string `json:"place"`
-	QrCode []byte `json:"qrcode"`
-	RegisteredTime string `json:"time"`
-}
 
 type RegisterIlugc struct {
 	Config *Config
 	Server *http.Server
 	Db *Db
 	Qr *Qr
+	AuthToken map[string]string
 }
 
 func CreateRegisterIlugc(config *Config) *RegisterIlugc {
@@ -48,6 +39,7 @@ func CreateRegisterIlugc(config *Config) *RegisterIlugc {
 
 	self.Db = CreateDb()
 	self.Qr = CreateQr()
+	self.AuthToken = make(map[string]string)
 	return self
 }
 
@@ -91,43 +83,6 @@ func (self *RegisterIlugc) IsClosed() (bool, error) {
 	return false, nil
 }
 
-func StructToMap(v any) map[string]string {
-	vmap := make(map[string]string)
-	valueof := reflect.ValueOf(v)
-	if valueof.Kind() == reflect.Ptr {
-		valueof = valueof.Elem()
-	}
-	typeof := valueof.Type()
-	for index := 0; index < valueof.NumField(); index++ {
-		typef := typeof.Field(index)
-		valuef := valueof.Field(index)
-		switch valuef.Kind() {
-		case reflect.Int64: vmap[typef.Name] = strconv.FormatInt(valuef.Int(), 10)
-		case reflect.Uint64: vmap[typef.Name] = strconv.FormatUint(valuef.Uint(), 10)
-		case reflect.Bool: vmap[typef.Name] = strconv.FormatBool(valuef.Bool())
-		case reflect.String: vmap[typef.Name] = valuef.String()
-		}
-	}
-	return vmap
-}
-
-func StructSetFromMap(v any, m map[string]any) {
-	valueof := reflect.ValueOf(v)
-	for k0, v0 := range m {
-		valuef := reflect.Indirect(valueof).FieldByName(k0)
-		if valuef.IsValid() == false {
-			G.logger.Println("Invalid value for key ", k0)
-			continue
-		}
-		switch valuef.Kind() {
-		case reflect.Int64: valuef.SetInt(int64(v0.(float64)))
-		case reflect.Uint64: valuef.SetUint(uint64(v0.(float64)))
-		case reflect.Bool: valuef.SetBool(v0.(bool))
-		case reflect.String: valuef.SetString(v0.(string))
-		}
-	}
-}
-
 func (self *RegisterIlugc) CheckAuth(body map[string]any) error {
 	if len(self.Config.AdminUsername) > 0 {
 		username, ok := body["AdminUsername"]
@@ -166,7 +121,7 @@ func (self *RegisterIlugc) Run() error {
 		http.ServeFile(response, request, fmt.Sprint(self.Config.Static, request.URL.Path))
 	})
 
-	http.HandleFunc("/register", func(response http.ResponseWriter, request *http.Request) {
+	http.HandleFunc("/register/", func(response http.ResponseWriter, request *http.Request) {
 		if request.Method != "POST" {
 			err := errors.New("request must be POST")
 			G.logger.Println(err)
@@ -200,12 +155,12 @@ func (self *RegisterIlugc) Run() error {
 			return
 		}
 		participant := &Participant{
+			RegisteredTime: time.Now().UTC().Format(time.RFC3339),
 			Name: body["name"].(string),
 			Email: body["email"].(string),
 			Mobile: body["mobile"].(string),
 			Org: body["org"].(string),
 			Place: body["place"].(string),
-			RegisteredTime: time.Now().UTC().Format(time.RFC3339),
 			QrCode: nil,
 		}
 
@@ -241,7 +196,7 @@ func (self *RegisterIlugc) Run() error {
 		response.Write(respbody)
 	})
 
-	http.HandleFunc("/isclosed", func(response http.ResponseWriter, request *http.Request) {
+	http.HandleFunc("/isclosed/", func(response http.ResponseWriter, request *http.Request) {
 		isclosed, err := self.IsClosed()
 		if err != nil  {
 			G.logger.Println(err)
@@ -261,7 +216,7 @@ func (self *RegisterIlugc) Run() error {
 		response.Write(body)
 	})
 
-	http.HandleFunc("/participant/{chksum}", func(response http.ResponseWriter, request *http.Request) {
+	http.HandleFunc("/participant/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
 		chksum := request.PathValue("chksum")
 		participant, err := self.Db.Read(chksum)
 		if err != nil {
@@ -285,7 +240,7 @@ func (self *RegisterIlugc) Run() error {
 		}
 	})
 
-	http.HandleFunc("/delete/{chksum}", func(response http.ResponseWriter, request *http.Request) {
+	http.HandleFunc("/delete/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
 		chksum := request.PathValue("chksum")
 		err := self.Db.Delete(chksum)
 		if err != nil {
@@ -301,7 +256,7 @@ func (self *RegisterIlugc) Run() error {
 		}
 	})
 
-	http.HandleFunc("/qr/{chksum}", func(response http.ResponseWriter, request *http.Request) {
+	http.HandleFunc("/qr/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
 		chksum := request.PathValue("chksum")
 		participant, err := self.Db.Read(chksum)
 		if err != nil {
@@ -313,7 +268,7 @@ func (self *RegisterIlugc) Run() error {
 		response.Write(participant.QrCode)
 	})
 
-	http.HandleFunc("/config", func(response http.ResponseWriter, request *http.Request) {
+	http.HandleFunc("/config/", func(response http.ResponseWriter, request *http.Request) {
 		if request.Method != "POST" {
 			configmap := StructToMap(self.Config)
 			for _, k := range []string{"Filename", "Hostport", "Static", "AdminUsername", "AdminPassword"} {
@@ -348,6 +303,86 @@ func (self *RegisterIlugc) Run() error {
 		
 		StructSetFromMap(self.Config, body)
 		response.Write([]byte("Config Updated"))
+	})
+
+	http.HandleFunc("/csv/", func(response http.ResponseWriter, request *http.Request) {
+		if request.Method != "POST" {
+			path := strings.SplitN(request.URL.Path, "/", 4)
+			hashdata := path[2]
+			if len(hashdata) <= 0 {
+				tmpl := template.Must(template.ParseFiles(self.Config.Static + "/csv.tmpl", self.Config.Static + "/admin.tmpl"))
+				if err := tmpl.Execute(response, nil); err != nil {
+					G.logger.Println(err)
+					http.Error(response, err.Error(), http.StatusBadRequest)
+				}
+				return
+			}
+			timestr, ok := self.AuthToken[hashdata]
+			if ok == false {
+				err := errors.New("No Auth Token")
+				G.logger.Println(err)
+				http.Error(response, err.Error(), http.StatusBadRequest)
+				return
+			}
+			delete(self.AuthToken, hashdata)
+
+			reqtime, err := time.Parse(time.RFC3339Nano, timestr)
+			if err != nil {
+				G.logger.Println(err)
+				http.Error(response, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			if time.Now().UTC().Sub(reqtime).Seconds() > 30 {
+				err := errors.New("Invalid Auth Token")
+				G.logger.Println(err)
+				http.Error(response, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			data, err := self.Db.Csv()
+			if err != nil {
+				G.logger.Println(err)
+				http.Error(response, err.Error(), http.StatusBadRequest)
+				return
+			}
+			response.Header().Set("Content-Type", "text/csv")
+			response.Header().Set("Content-Disposition", "attachment; filename=\"participants.csv\"")
+			response.Write(data)
+			return
+		}
+
+		data, err := io.ReadAll(request.Body)
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		body := make(map[string]any)
+		if err := json.Unmarshal(data, &body); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err = self.CheckAuth(body); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		nowstring := time.Now().UTC().Format(time.RFC3339Nano)
+		hash := base64.URLEncoding.EncodeToString([]byte(nowstring))
+		self.AuthToken[hash] = nowstring
+		type CsvResp struct {
+			Hash string `json:"hash"`
+		}
+		respbody, err := json.Marshal(&CsvResp{Hash: hash})
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		response.Write(respbody)
 	})
 
 	go func() {

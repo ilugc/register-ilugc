@@ -2,7 +2,7 @@
     grid-template-columns: 2fr 2fr;
 }
 
-#title, #qrlink, #delete, #print {
+#title, #qrlink, #delete, #home, #print {
     grid-column: 1 / -1;
     text-align: center;
 }

@@ -13,7 +13,7 @@ let showMessage = function(message) {
     global.status.innerText = message;
 }
 
-fetch("/isclosed", {
+fetch("/isclosed/", {
     method: "GET",
 }).then((response) => {
     return response.text()
@@ -68,7 +68,7 @@ global.register.addEventListener("click", (event) => {
 	return;
     }
 
-    fetch("/register", {
+    fetch("/register/", {
 	method: "POST",
 	header: {
 	    "Content-Type": "application/json"

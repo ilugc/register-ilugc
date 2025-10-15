@@ -1,9 +1,13 @@
 package register_ilugc
 
 import (
+	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/hex"
+	"errors"
 	"hash/fnv"
+	"sort"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
@@ -81,6 +85,12 @@ func (self *Db) Write(participant *Participant) error {
 }
 
 func (self *Db) Read(chksum string) (*Participant, error) {
+	if len(chksum) <= 0 {
+		err := errors.New("Empty chksum")
+		G.logger.Println(err)
+		return nil, err
+	}
+
 	ctx := context.Background()
 	mparticipant, err := gorm.G[MParticipant](self.Db).Where("chksum = ?", chksum).First(ctx)
 	if err != nil {
@@ -91,6 +101,12 @@ func (self *Db) Read(chksum string) (*Participant, error) {
 }
 
 func (self *Db) Delete(chksum string) error {
+	if len(chksum) <= 0 {
+		err := errors.New("Empty chksum")
+		G.logger.Println(err)
+		return err
+	}
+
 	ctx := context.Background()
 	_, err := gorm.G[MParticipant](self.Db).Where("chksum = ?", chksum).Delete(ctx)
 	if err != nil {
@@ -108,4 +124,35 @@ func (self *Db) Count() (int64, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+func (self *Db) Csv() ([]byte, error) {
+	ctx := context.Background()
+	mparticipants, err := gorm.G[MParticipant](self.Db).Find(ctx)
+	if err != nil {
+		G.logger.Println(err)
+		return nil, err
+	}
+
+	csvbuffer := bytes.NewBuffer(nil)
+	csvwriter := csv.NewWriter(csvbuffer)
+	headers := []string{}
+	for _, mparticipant := range mparticipants {
+		participant := &mparticipant.Participant
+		participantmap := StructToMap(participant)
+		if len(headers) <= 0 {
+			for header, _ := range participantmap {
+				headers = append(headers, header)
+			}
+			sort.Strings(headers)
+			csvwriter.Write(headers)
+		}
+		values := []string{}
+		for _, header := range headers {
+			values = append(values, participantmap[header])
+		}
+		csvwriter.Write(values)
+		csvwriter.Flush()
+	}
+	return csvbuffer.Bytes(), nil
 }

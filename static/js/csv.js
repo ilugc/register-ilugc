@@ -1,14 +1,19 @@
 let global = {
-    change: document.getElementById("change"),
+    download: document.getElementById("download"),
     status: document.getElementById("status"),
     gdiv: document.getElementById("gdiv")
+}
+
+let redirectLink = function(hash) {
+    link ="/csv/" + hash;
+    location.assign(link);
 }
 
 let showMessage = function(message) {
     global.status.innerText = message;
 }
 
-global.change.addEventListener("click", (event) => {
+global.download.addEventListener("click", (event) => {
     body = {}
     formelements = document.getElementsByClassName("form");
     for (el of formelements) {
@@ -21,21 +26,13 @@ global.change.addEventListener("click", (event) => {
 	    body.AdminPassword = btoa(el.value);
 	    break;
 	}
-	case "DefaultMax": {
-	    body.DefaultMax = parseInt(el.value);
-	    break;
-	}
-	case "StopRegistration": {
-	    body.StopRegistration = el.value === "true" ? true : false;
-	    break;
-	}
 	default: {
 	    body[el.id] = el.value;
 	}
 	}
     }
 
-    fetch("/config/", {
+    fetch("/csv/", {
 	method: "POST",
 	header: {
 	    "Content-Type": "application/json"
@@ -49,12 +46,18 @@ global.change.addEventListener("click", (event) => {
     }, (err) => {
 	showMessage(err.toString());
     }).then((body) => {
-	showMessage(body);
+	try {
+	    resp = JSON.parse(body);
+	    redirectLink(resp.hash);
+	}
+	catch(err) {
+	    showMessage(body);
+	}
     });
 });
 
-global.change.addEventListener("focusout", (event) => {
-    if (global.change.checkVisibility()) {
+global.download.addEventListener("focusout", (event) => {
+    if (global.download.checkVisibility()) {
 	global.status.innerText = "";
     }
 });
