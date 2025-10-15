@@ -21,9 +21,7 @@ body {
 }
 
 #sourcecode {
-    display: grid;
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    grid-template-columns: 1fr 4fr;
+    bottom: 5%;
+    right: 2%;
 }
