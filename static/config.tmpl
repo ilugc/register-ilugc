@@ -1,0 +1,20 @@
+<html>
+  <head>
+    <link href="/css/base.css" rel="stylesheet" />
+    <link href="/css/config.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="fdiv">
+      <div id="gdiv">
+	{{template "admin.tmpl"}}
+	{{ range $key, $value := . }}
+	<label>{{- $key -}}</label>
+	<input id="{{- $key -}}" class="form" placeholder="{{- $value -}}" />
+	{{ end }}
+	<input id="change" type="button" value="Change" />
+      </div>
+      <label id="status"></label>
+    </div>
+    <script src="/js/config.js"></script>
+  </body>
+</html>

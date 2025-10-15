@@ -99,3 +99,13 @@ func (self *Db) Delete(chksum string) error {
 	}
 	return nil
 }
+
+func (self *Db) Count() (int64, error) {
+	ctx := context.Background()
+	count, err := gorm.G[MParticipant](self.Db).Count(ctx, "")
+	if err != nil {
+		G.logger.Println(err)
+		return 0, err
+	}
+	return count, nil
+}

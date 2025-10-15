@@ -1,7 +1,7 @@
 let global = {
-    submit: document.getElementById("submit"),
+    register: document.getElementById("register"),
     status: document.getElementById("status"),
-    fieldsdiv: document.getElementById("fieldsdiv"),
+    gdiv: document.getElementById("gdiv"),
 }
 
 let redirectLink = function(chksum) {
@@ -13,7 +13,7 @@ let showMessage = function(message) {
     global.status.innerText = message;
 }
 
-fetch("/max_reached", {
+fetch("/isclosed", {
     method: "GET",
 }).then((response) => {
     return response.text()
@@ -21,16 +21,17 @@ fetch("/max_reached", {
     showMessage(err.toString());
 }).then((body) => {
     resp = JSON.parse(body);
-    if (resp.max_reached === true) {
-	showMessage("Maximum participants reached. Register next month early");
+    if (resp.isclosed === true) {
+	global.gdiv.style.display = "none";
+	showMessage("Registration Closed");
     }
 });
 
-global.submit.addEventListener("focusout", (event) => {
+global.register.addEventListener("focusout", (event) => {
     global.status.innerText = "";
 });
 
-global.submit.addEventListener("click", (event) => {
+global.register.addEventListener("click", (event) => {
     pname = document.getElementById("participant_name");
     if (pname.value.length < 0
 	|| /^[A-Za-z ]+$/.test(pname.value) == false) {
