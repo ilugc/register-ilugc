@@ -22,7 +22,7 @@ func CreateConfig(filename string) *Config {
 	if len(filename) > 0 {
 		self.Filename = filename
 	}
-	self.Domain = "register.ilugc.in"
+	self.Domain = "https://register.ilugc.in"
 	self.Hostport = ":2203"
 	self.Static = "static"
 	self.DefaultMax = 0
