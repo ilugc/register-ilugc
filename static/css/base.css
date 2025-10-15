@@ -19,3 +19,11 @@ body {
     margin: 1px;
     padding: 1px;
 }
+
+#sourcecode {
+    display: grid;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    grid-template-columns: 1fr 4fr;
+}

@@ -117,8 +117,14 @@ func (self *RegisterIlugc) CheckAuth(body map[string]any) error {
 func (self *RegisterIlugc) Run() error {
 	defer self.Close()
 
-	http.HandleFunc("/", func(response http.ResponseWriter, request *http.Request) {
-		http.ServeFile(response, request, fmt.Sprint(self.Config.Static, request.URL.Path))
+	http.HandleFunc("/{$}", func(response http.ResponseWriter, request *http.Request) {
+		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/index.tmpl",
+			self.Config.Static + "/sourcecode.tmpl"))
+		if err := tmpl.Execute(response, nil); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
 	})
 
 	http.HandleFunc("/register/", func(response http.ResponseWriter, request *http.Request) {
@@ -232,7 +238,8 @@ func (self *RegisterIlugc) Run() error {
 			QrCodeUrl string
 		}
 		participantresp := &ParticipantResp{ParticipantMap: participantmap, UnregisterUrl: "/delete/" + chksum, QrCodeUrl: "/qr/" + chksum}
-		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/participant.tmpl"))
+		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/participant.tmpl",
+			self.Config.Static + "/sourcecode.tmpl"))
 		if err := tmpl.Execute(response, participantresp); err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
@@ -248,7 +255,8 @@ func (self *RegisterIlugc) Run() error {
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
-		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/unregister.tmpl"))
+		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/unregister.tmpl",
+			self.Config.Static + "/sourcecode.tmpl"))
 		if err := tmpl.Execute(response, nil); err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
@@ -275,7 +283,9 @@ func (self *RegisterIlugc) Run() error {
 				delete(configmap, k)
 			}
 
-			tmpl := template.Must(template.ParseFiles(self.Config.Static + "/config.tmpl", self.Config.Static + "/admin.tmpl"))
+			tmpl := template.Must(template.ParseFiles(self.Config.Static + "/config.tmpl",
+				self.Config.Static + "/admin.tmpl",
+				self.Config.Static + "/sourcecode.tmpl"))
 			if err := tmpl.Execute(response, configmap); err != nil {
 				G.logger.Println(err)
 				http.Error(response, err.Error(), http.StatusBadRequest)
@@ -310,7 +320,9 @@ func (self *RegisterIlugc) Run() error {
 			path := strings.SplitN(request.URL.Path, "/", 4)
 			hashdata := path[2]
 			if len(hashdata) <= 0 {
-				tmpl := template.Must(template.ParseFiles(self.Config.Static + "/csv.tmpl", self.Config.Static + "/admin.tmpl"))
+				tmpl := template.Must(template.ParseFiles(self.Config.Static + "/csv.tmpl",
+					self.Config.Static + "/admin.tmpl",
+					self.Config.Static + "/sourcecode.tmpl"))
 				if err := tmpl.Execute(response, nil); err != nil {
 					G.logger.Println(err)
 					http.Error(response, err.Error(), http.StatusBadRequest)
@@ -383,6 +395,10 @@ func (self *RegisterIlugc) Run() error {
 			return
 		}
 		response.Write(respbody)
+	})
+
+	http.HandleFunc("/", func(response http.ResponseWriter, request *http.Request) {
+		http.ServeFile(response, request, fmt.Sprint(self.Config.Static, request.URL.Path))
 	})
 
 	go func() {
