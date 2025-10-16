@@ -1,5 +1,5 @@
 #gdiv {
-    grid-template-columns: 2fr 2fr;
+    grid-template-columns: 1fr 2fr;
 }
 
 #title, #qrlink, #delete, #home, #print {
@@ -8,7 +8,6 @@
 }
 
 #qr {
-    width: 25vw;
     aspect-ratio: 1 / 1;
 }
 
