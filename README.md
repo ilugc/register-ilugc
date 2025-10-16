@@ -36,3 +36,9 @@ Using the following command we can check if this service is accessable
 ```console
 curl -v http://localhost:2203
 ```
+
+### Endpoints
+
+- `/` :: Primary Registration Form
+- `/config` :: Show form to dynamically change maximum participants limit or to stop registration (Auth required)
+- `/csv` :: To get the current participants list as csv (Auth required)
