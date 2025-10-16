@@ -1,0 +1,11 @@
+#gdiv {
+    grid-template-columns: 1fr 2fr;
+}
+
+#register, #status, #title {
+    grid-column: 1 / -1;
+}
+
+#title, #status {
+    text-align: center;
+}

@@ -1,0 +1,22 @@
+<html>
+  <head>
+    <link href="/css/base.css" rel="stylesheet" />
+    <link href="/css/participant.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="fdiv">
+      <div id="gdiv">
+	<label id="title">Ilugc Monthly Meet Registration Details</label>
+	{{ range $key, $value := .ParticipantMap }}
+	<label>{{- $key -}}</label>
+	<label>{{- $value -}}</label>
+	{{ end }}
+	<a id="qrlink" href="{{- .QrCodeUrl -}}" target="_blank"><img id="qr" src="{{- .QrCodeUrl -}}" /></a>
+	<input id="print" class="hide-on-print" type="button" value="Print" onclick="print()" />
+	<a id="delete" class="hide-on-print" href="{{- .UnregisterUrl -}}">Unregister</a>
+	<a id="home" class="hide-on-print" href="/">Home</a>
+      </div>
+    </div>
+    {{template "sourcecode.tmpl"}}
+  </body>
+</html>

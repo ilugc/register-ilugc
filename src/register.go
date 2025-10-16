@@ -1,233 +1,143 @@
-package register_ilugc
+package register
 
 import (
 	"context"
-	"encoding/csv"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
 
 type RegisterIlugc struct {
-	Address string
+	Config *Config
 	Server *http.Server
-	CsvFile *os.File
-	Csv *csv.Writer
+	Db *Db
+	Qr *Qr
+	AuthToken map[string]string
 }
 
-func CreateRegisterIlugc(address string) *RegisterIlugc {
+func CreateRegisterIlugc(config *Config) *RegisterIlugc {
 	self := &RegisterIlugc{}
-	self.Address = ":2203"
-	if len(address) > 0 {
-		self.Address = address
+
+	self.Config = config
+	if self.Config == nil {
+		self.Config = CreateConfig("")
+		self.Config.Init()
 	}
+
 	self.Server = &http.Server{
-		Addr: self.Address,
+		Addr: self.Config.Hostport,
 	}
+
+	self.Db = CreateDb()
+	self.Qr = CreateQr()
+	self.AuthToken = make(map[string]string)
 	return self
 }
 
 func (self *RegisterIlugc) Init() error {
-	CsvFile, err := os.OpenFile("participants.csv", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644);
-	if err != nil {
+	if err := self.Db.Init(); err != nil {
 		G.logger.Println(err)
 		return err
 	}
-	self.CsvFile = CsvFile
-	self.Csv = csv.NewWriter(self.CsvFile)
+	if err := self.Qr.Init(); err != nil {
+		G.logger.Println(err)
+		return err
+	}
+
+	if len(self.Config.Static) <= 0 {
+		staticpath, err := GetStaticPath()
+		if err != nil {
+			G.logger.Println(err)
+			return err
+		}
+		G.logger.Println("staticpath:", staticpath)
+		self.Config.Static = staticpath
+	}
 	return nil
 }
 
 func (self *RegisterIlugc) Close() {
-	if self.Csv != nil {
-		self.Csv.Flush()
+	db, err := self.Db.Db.DB()
+	if err != nil {
+		G.logger.Println(err)
+		return
 	}
-	if self.CsvFile != nil {
-		self.CsvFile.Close()
-		self.CsvFile = nil
+	if err := db.Close(); err != nil {
+		G.logger.Println(err)
 	}
+}
+
+func (self *RegisterIlugc) IsClosed() (bool, error) {
+	if self.Config.StopRegistration == true {
+		return true, nil
+	}
+
+	count, err := self.Db.Count()
+	if err != nil {
+		G.logger.Println(err)
+		return false, err
+	}
+	if self.Config.DefaultMax > 0 &&
+		count >= self.Config.DefaultMax {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (self *RegisterIlugc) CheckAuth(body map[string]any) error {
+	if len(self.Config.AdminUsername) > 0 {
+		username, ok := body["AdminUsername"]
+		if ok == false {
+			err := errors.New("AdminUsername not sent")
+			return err
+		}
+		username = username.(string)
+		delete(body, "AdminUsername")
+		if self.Config.AdminUsername != username {
+			err := errors.New("Authendication Failed")
+			return err
+		}
+	}
+
+	if len(self.Config.AdminPassword) > 0 {
+		password, ok := body["AdminPassword"]
+		if ok == false {
+			err := errors.New("AdminPassword not sent")
+			return err
+		}
+		password = password.(string)
+		delete(body, "AdminPassword")
+		if self.Config.AdminPassword != password {
+			err := errors.New("Authendication Failed")
+			return err
+		}
+	}
+	return nil
 }
 
 func (self *RegisterIlugc) Run() error {
 	defer self.Close()
 
-	http.HandleFunc("/", func(response http.ResponseWriter, request *http.Request) {
-		html := `
-<html>
-  <head>
-    <style>
-      body,canvas {
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-      }
-      #registerform {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          height: 100%;
-      }
-      #fieldsdiv {
-          display: grid;
-          grid-template-columns: 1fr 2fr;
-      }
-      #submit, #status, #title {
-          grid-column: 1 / -1;
-      }
-      #title, #status {
-	  text-align: center;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="registerform">
-      <div id="fieldsdiv">
-        <label id="title">ILUGC Monthly Meet Register Form</label>
-        <label>Name</label>
-        <input id="participant_name" />
-        <label>Email</label>
-        <input id="participant_email" />
-        <label>Mobile</label>
-        <input id="participant_mobile" />
-	<label>College/Company Name</label>
-	<input id="participant_org" type="text" />
-	<label>Place</label>
-	<input id="participant_place" type="text", placeholder="eg: Velachery" />
-        <input id="submit" type="button" value="submit" />
-        <label id="status"></label>
-      </div>
-    </div>
-    <script src="/register.js"></script>
-  </body>
-</html>
-`
-		html_closed := `
-<html>
-  <head>
-    <style>
-      body,canvas {
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-      }
-      #registerform {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          height: 100%;
-      }
-      #fieldsdiv {
-          display: grid;
-          grid-template-columns: 1fr 2fr;
-      }
-      #submit, #status, #title {
-          grid-column: 1 / -1;
-      }
-      #title, #status {
-	  text-align: center;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="registerform">
-      <div id="fieldsdiv">
-        <label id="title">Registration Closed. Maximum participants reached, register early for next month meet.</label>
-      </div>
-    </div>
-  </body>
-</html>
-`
-		if _, err := os.Stat("max_reached"); err == nil {
-			response.Write([]byte(html_closed))
+	http.HandleFunc("/{$}", func(response http.ResponseWriter, request *http.Request) {
+		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/index.tmpl",
+			self.Config.Static + "/sourcecode.tmpl"))
+		if err := tmpl.Execute(response, nil); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
-		response.Write([]byte(html))
 	})
 
-	http.HandleFunc("/register.js", func(response http.ResponseWriter, request *http.Request) {
-		registerjs := `
-let global = {
-    submit: document.getElementById("submit"),
-    status: document.getElementById("status")
-}
-
-let showMessage = function(error) {
-    global.submit.focus();
-    global.status.innerText = error;
-}
-
-global.submit.addEventListener("focusout", (event) => {
-    global.status.innerText = "";
-});
-
-global.submit.addEventListener("click", (event) => {
-    pname = document.getElementById("participant_name");
-    if (pname.value.length < 0
-	|| /^[A-Za-z ]+$/.test(pname.value) == false) {
-	showMessage("invalid name");
-	return;
-    }
-    pemail = document.getElementById("participant_email");
-    if (pemail.value.length < 0	||
-	/@/.test(pemail.value) == false) {
-	showMessage("invalid email");
-	return;
-    }
-    pmobile = document.getElementById("participant_mobile");
-    if (pmobile.value.length < 10
-	|| pmobile.value.length > 13
-	|| /^[+0-9]+$/.test(pmobile.value) == false) {
-	showMessage("invalid mobile number");
-	return;
-    }
-    porg = document.getElementById("participant_org");
-    if (porg.value.length < 0
-	|| /^[A-Za-z0-9 ]+$/.test(porg.value) == false) {
-	showMessage("invalid organization");
-	return;
-    }
-    pplace = document.getElementById("participant_place");
-    if (pplace.value.length < 0
-	|| /^[A-Za-z ]+$/.test(pplace.value) == false) {
-	showMessage("invalid place");
-	return;
-    }
-
-    fetch("/register", {
-	method: "POST",
-	header: {
-	    "Content-Type": "application/json"
-	},
-	body: JSON.stringify({name: pname.value, email: pemail.value, mobile: pmobile.value, org: porg.value, place: pplace.value})
-    }).then((response) => {
-	if (response.status === 200) {
-	    pname.value = '';
-	    pemail.value = '';
-	    pmobile.value = '';
-	    porg.value = '';
-	    pplace.value = '';
-	    showMessage("registration successful");
-	}
-	else {
-	    showMessage("registration failed, try later");
-	}
-    }, () => {
-	showMessage("registration failed, try later");
-    })
-})
-`
-		response.Write([]byte(registerjs))
-	})
-
-	http.HandleFunc("/register", func(response http.ResponseWriter, request *http.Request) {
+	http.HandleFunc("/register/", func(response http.ResponseWriter, request *http.Request) {
 		if request.Method != "POST" {
 			err := errors.New("request must be POST")
 			G.logger.Println(err)
@@ -235,24 +145,14 @@ global.submit.addEventListener("click", (event) => {
 			return
 		}
 
-		if _, err := os.Stat("max_reached"); err == nil {
-			err := errors.New("Registration Closed. Maximum participants reached, register early for next month meet.")
+		isclosed, err := self.IsClosed()
+		if err != nil  {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		stat, err := self.CsvFile.Stat()
-		if err != nil {
-			err := errors.New("cannot stat CsvFile")
-			G.logger.Println(err)
-			http.Error(response, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if stat.Size() > (1024 * 1024 * 512) {
-			msg := fmt.Sprint("filesize ", stat.Size(),  " greater than 512MB")
-			err := errors.New(msg)
+		if isclosed {
+			err := errors.New("Registration Closed")
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
@@ -260,35 +160,255 @@ global.submit.addEventListener("click", (event) => {
 
 		data, err := io.ReadAll(request.Body)
 		if err != nil {
-			err := errors.New("failed to read body")
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
 		body := make(map[string]any)
 		if err := json.Unmarshal(data, &body); err != nil {
-			err := errors.New("failed to parse body")
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
-		type Participant struct {
-			Name string `json:"name"`
-			Email string `json:"email"`
-			Mobile string `json:"mobile"`
-			Org string `json:"org"`
-			Place string `json:"place"`
-		}
 		participant := &Participant{
+			RegisteredTime: time.Now().UTC().Format(time.RFC3339),
 			Name: body["name"].(string),
 			Email: body["email"].(string),
 			Mobile: body["mobile"].(string),
 			Org: body["org"].(string),
 			Place: body["place"].(string),
+			QrCode: nil,
 		}
-		G.logger.Println(participant)
-		self.Csv.Write([]string{time.Now().Local().String(), participant.Name, participant.Email, participant.Mobile, participant.Org, participant.Place})
-		self.Csv.Flush()
+
+		chksum, err := self.Db.Chksum(participant)
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		qrbuffer, err := self.Qr.Gen(self.Config.Domain + "/participant/" + chksum)
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		participant.QrCode = qrbuffer.Bytes()
+		if err := self.Db.Write(participant); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		type RegisterResp struct {
+			Chksum string `json:"chksum"`
+		}
+		respbody, err := json.Marshal(&RegisterResp{Chksum: chksum})
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		response.Write(respbody)
+	})
+
+	http.HandleFunc("/isclosed/", func(response http.ResponseWriter, request *http.Request) {
+		isclosed, err := self.IsClosed()
+		if err != nil  {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		type IsClosedResp struct {
+			IsClosed bool `json:"isclosed"`
+		}
+		body, err := json.Marshal(&IsClosedResp{IsClosed: isclosed})
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		response.Write(body)
+	})
+
+	http.HandleFunc("/participant/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
+		chksum := request.PathValue("chksum")
+		participant, err := self.Db.Read(chksum)
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		participantmap := StructToMap(participant)
+		
+		type ParticipantResp struct {
+			ParticipantMap map[string]string
+			UnregisterUrl string
+			QrCodeUrl string
+		}
+		participantresp := &ParticipantResp{ParticipantMap: participantmap, UnregisterUrl: "/delete/" + chksum, QrCodeUrl: "/qr/" + chksum}
+		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/participant.tmpl",
+			self.Config.Static + "/sourcecode.tmpl"))
+		if err := tmpl.Execute(response, participantresp); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+	})
+
+	http.HandleFunc("/delete/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
+		chksum := request.PathValue("chksum")
+		err := self.Db.Delete(chksum)
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/unregister.tmpl",
+			self.Config.Static + "/sourcecode.tmpl"))
+		if err := tmpl.Execute(response, nil); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+	})
+
+	http.HandleFunc("/qr/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
+		chksum := request.PathValue("chksum")
+		participant, err := self.Db.Read(chksum)
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		response.Header().Set("Content-Type", "image/png")
+		response.Write(participant.QrCode)
+	})
+
+	http.HandleFunc("/config/", func(response http.ResponseWriter, request *http.Request) {
+		if request.Method != "POST" {
+			configmap := StructToMap(self.Config)
+			for _, k := range []string{"Filename", "Hostport", "Static", "AdminUsername", "AdminPassword"} {
+				delete(configmap, k)
+			}
+
+			tmpl := template.Must(template.ParseFiles(self.Config.Static + "/config.tmpl",
+				self.Config.Static + "/admin.tmpl",
+				self.Config.Static + "/sourcecode.tmpl"))
+			if err := tmpl.Execute(response, configmap); err != nil {
+				G.logger.Println(err)
+				http.Error(response, err.Error(), http.StatusBadRequest)
+			}
+			return
+		}
+
+		data, err := io.ReadAll(request.Body)
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		body := make(map[string]any)
+		if err := json.Unmarshal(data, &body); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err = self.CheckAuth(body); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		
+		StructSetFromMap(self.Config, body)
+		response.Write([]byte("Config Updated"))
+	})
+
+	http.HandleFunc("/csv/", func(response http.ResponseWriter, request *http.Request) {
+		if request.Method != "POST" {
+			path := strings.SplitN(request.URL.Path, "/", 4)
+			hashdata := path[2]
+			if len(hashdata) <= 0 {
+				tmpl := template.Must(template.ParseFiles(self.Config.Static + "/csv.tmpl",
+					self.Config.Static + "/admin.tmpl",
+					self.Config.Static + "/sourcecode.tmpl"))
+				if err := tmpl.Execute(response, nil); err != nil {
+					G.logger.Println(err)
+					http.Error(response, err.Error(), http.StatusBadRequest)
+				}
+				return
+			}
+			timestr, ok := self.AuthToken[hashdata]
+			if ok == false {
+				err := errors.New("No Auth Token")
+				G.logger.Println(err)
+				http.Error(response, err.Error(), http.StatusBadRequest)
+				return
+			}
+			delete(self.AuthToken, hashdata)
+
+			reqtime, err := time.Parse(time.RFC3339Nano, timestr)
+			if err != nil {
+				G.logger.Println(err)
+				http.Error(response, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			if time.Now().UTC().Sub(reqtime).Seconds() > 30 {
+				err := errors.New("Invalid Auth Token")
+				G.logger.Println(err)
+				http.Error(response, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			data, err := self.Db.Csv()
+			if err != nil {
+				G.logger.Println(err)
+				http.Error(response, err.Error(), http.StatusBadRequest)
+				return
+			}
+			response.Header().Set("Content-Type", "text/csv")
+			response.Header().Set("Content-Disposition", "attachment; filename=\"participants.csv\"")
+			response.Write(data)
+			return
+		}
+
+		data, err := io.ReadAll(request.Body)
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		body := make(map[string]any)
+		if err := json.Unmarshal(data, &body); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err = self.CheckAuth(body); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		nowstring := time.Now().UTC().Format(time.RFC3339Nano)
+		hash := base64.URLEncoding.EncodeToString([]byte(nowstring))
+		self.AuthToken[hash] = nowstring
+		type CsvResp struct {
+			Hash string `json:"hash"`
+		}
+		respbody, err := json.Marshal(&CsvResp{Hash: hash})
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		response.Write(respbody)
+	})
+
+	http.HandleFunc("/", func(response http.ResponseWriter, request *http.Request) {
+		http.ServeFile(response, request, fmt.Sprint(self.Config.Static, request.URL.Path))
 	})
 
 	go func() {
