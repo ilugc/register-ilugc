@@ -1,4 +1,4 @@
-package register_ilugc
+package register
 
 import (
 	"context"
@@ -51,6 +51,16 @@ func (self *RegisterIlugc) Init() error {
 	if err := self.Qr.Init(); err != nil {
 		G.logger.Println(err)
 		return err
+	}
+
+	if len(self.Config.Static) <= 0 {
+		staticpath, err := GetStaticPath()
+		if err != nil {
+			G.logger.Println(err)
+			return err
+		}
+		G.logger.Println("staticpath:", staticpath)
+		self.Config.Static = staticpath
 	}
 	return nil
 }

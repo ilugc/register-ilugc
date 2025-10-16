@@ -1,4 +1,4 @@
-package register_ilugc
+package register
 
 import (
 	"bytes"

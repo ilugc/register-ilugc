@@ -1,7 +1,9 @@
-package register_ilugc
+package register
 
 import (
 	"log"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 )
@@ -56,6 +58,21 @@ func StructSetFromMap(v any, m map[string]any) {
 		case reflect.String: valuef.SetString(v0.(string))
 		}
 	}
+}
+
+func GetStaticPath() (string, error) {
+	realpath, err := filepath.EvalSymlinks("/proc/self/exe")
+	if err != nil {
+		G.logger.Println(err)
+		return "", err
+	}
+	staticpath := filepath.Clean(filepath.Dir(realpath) + "/../../static")
+	_, err = os.Stat(staticpath)
+	if err != nil {
+		G.logger.Println(err)
+		return "", err
+	}
+	return staticpath, nil
 }
 
 func init() {

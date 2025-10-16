@@ -1,4 +1,4 @@
-package register_ilugc
+package register
 
 import (
 	"os"
@@ -24,7 +24,7 @@ func CreateConfig(filename string) *Config {
 	}
 	self.Domain = "https://register.ilugc.in"
 	self.Hostport = ":2203"
-	self.Static = "static"
+	self.Static = ""
 	self.DefaultMax = 0
 	self.StopRegistration = false
 	return self

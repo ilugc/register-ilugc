@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"register_ilugc"
+	"register"
 	"strconv"
 )
 
 func main() {
-	config := register_ilugc.CreateConfig("")
+	config := register.CreateConfig("")
 	config.Init()
 
 	if len(os.Args) > 1 && len(os.Args[1]) > 0 {
@@ -43,7 +43,7 @@ func main() {
 		}
 	}
 
-	register := register_ilugc.CreateRegisterIlugc(config)
+	register := register.CreateRegisterIlugc(config)
 	if err := register.Init(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
