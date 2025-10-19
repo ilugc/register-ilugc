@@ -183,9 +183,10 @@ func (self *RegisterIlugc) GenAuthToken() (string, error) {
 		G.logger.Println(err)
 		return "", err
 	}
-	hash := base64.URLEncoding.EncodeToString(buffer.Bytes())
-	self.AuthToken[hash] = authtoken
-	return hash, nil
+	hash := sha256.Sum256(buffer.Bytes())
+	hashstr := hex.EncodeToString(hash[:])
+	self.AuthToken[hashstr] = authtoken
+	return hashstr, nil
 }
 
 func (self *RegisterIlugc) Run() error {
