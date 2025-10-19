@@ -23,6 +23,11 @@ type MParticipant struct {
 	Participant
 }
 
+type MAdmin struct {
+	gorm.Model
+	Admin
+}
+
 func CreateDb() *Db {
 	self := &Db{}
 	return self
@@ -39,10 +44,14 @@ func (self *Db) Init() error {
 		G.logger.Println(err)
 		return err
 	}
+	if err = self.Db.AutoMigrate(&MAdmin{}); err != nil {
+		G.logger.Println(err)
+		return err
+	}
 	return nil
 }
 
-func (self *Db) Chksum(participant *Participant) (string, error) {
+func (self *Db) ParticipantChksum(participant *Participant) (string, error) {
 	hash := fnv.New64()
 	if _, err := hash.Write([]byte(participant.Name)); err != nil {
 		G.logger.Println(err)
@@ -60,8 +69,8 @@ func (self *Db) Chksum(participant *Participant) (string, error) {
 	return chksum, nil
 }
 
-func (self *Db) Write(participant *Participant) error {
-	chksum, err := self.Chksum(participant)
+func (self *Db) ParticipantWrite(participant *Participant) error {
+	chksum, err := self.ParticipantChksum(participant)
 	if err != nil {
 		G.logger.Println(err)
 		return err
@@ -84,7 +93,7 @@ func (self *Db) Write(participant *Participant) error {
 	return nil
 }
 
-func (self *Db) Read(chksum string) (*Participant, error) {
+func (self *Db) ParticipantRead(chksum string) (*Participant, error) {
 	if len(chksum) <= 0 {
 		err := errors.New("Empty chksum")
 		G.logger.Println(err)
@@ -100,7 +109,7 @@ func (self *Db) Read(chksum string) (*Participant, error) {
 	return &mparticipant.Participant, nil
 }
 
-func (self *Db) Delete(chksum string) error {
+func (self *Db) ParticipantDelete(chksum string) error {
 	if len(chksum) <= 0 {
 		err := errors.New("Empty chksum")
 		G.logger.Println(err)
@@ -116,7 +125,7 @@ func (self *Db) Delete(chksum string) error {
 	return nil
 }
 
-func (self *Db) Count() (int64, error) {
+func (self *Db) ParticipantCount() (int64, error) {
 	ctx := context.Background()
 	count, err := gorm.G[MParticipant](self.Db).Count(ctx, "")
 	if err != nil {
@@ -126,7 +135,7 @@ func (self *Db) Count() (int64, error) {
 	return count, nil
 }
 
-func (self *Db) Csv() ([]byte, error) {
+func (self *Db) ParticipantCsv() ([]byte, error) {
 	ctx := context.Background()
 	mparticipants, err := gorm.G[MParticipant](self.Db).Find(ctx)
 	if err != nil {
@@ -155,4 +164,28 @@ func (self *Db) Csv() ([]byte, error) {
 		csvwriter.Flush()
 	}
 	return csvbuffer.Bytes(), nil
+}
+
+func (self *Db) AdminWrite(admin *Admin) error {
+	ctx := context.Background()
+	_, err := gorm.G[MAdmin](self.Db).Where("1 = 1").Delete(ctx)
+	if err != nil {
+		G.logger.Println(err)
+		return err
+	}
+	if err := gorm.G[MAdmin](self.Db).Create(ctx, &MAdmin{Admin: *admin}); err != nil {
+		G.logger.Println(err)
+		return err
+	}
+	return nil
+}
+
+func (self *Db) AdminRead() (*Admin, error) {
+	ctx := context.Background()
+	madmin, err := gorm.G[MAdmin](self.Db).First(ctx)
+	if err != nil {
+		G.logger.Println(err)
+		return nil, err
+	}
+	return &madmin.Admin, nil
 }

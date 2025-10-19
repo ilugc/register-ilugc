@@ -60,6 +60,7 @@ func (self *RegisterIlugc) Init() error {
 		G.logger.Println(err)
 		return err
 	}
+
 	if err := self.Qr.Init(); err != nil {
 		G.logger.Println(err)
 		return err
@@ -93,7 +94,7 @@ func (self *RegisterIlugc) IsClosed() (bool, error) {
 		return true, nil
 	}
 
-	count, err := self.Db.Count()
+	count, err := self.Db.ParticipantCount()
 	if err != nil {
 		G.logger.Println(err)
 		return false, err
@@ -108,7 +109,12 @@ func (self *RegisterIlugc) IsClosed() (bool, error) {
 func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
 	username, passwordb64, ok := request.BasicAuth()
 
-	if len(self.Config.AdminUsername) > 0 {
+	adminusername, err := self.Config.GetAdminUsername()
+	if err != nil {
+		G.logger.Println(err)
+		return err
+	}
+	if len(adminusername) > 0 {
 		if ok == false {
 			err := errors.New("Invalid Auth")
 			G.logger.Println(err)
@@ -120,14 +126,20 @@ func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
 			return err
 		}
 
-		if self.Config.AdminUsername != username {
+		if adminusername != username {
 			err := errors.New("Invalid AdminUsername")
 			G.logger.Println(err)
 			return err
 		}
 	}
 
-	if len(self.Config.GetAdminPassword()) > 0 {
+	adminpassword, err := self.Config.GetAdminPassword()
+	if err != nil {
+		G.logger.Println(err)
+		return err
+	}
+	if adminpassword != nil &&
+		len(adminpassword) > 0 {
 		if ok == false {
 			err := errors.New("Invalid Auth")
 			G.logger.Println(err)
@@ -166,7 +178,7 @@ func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
 			passwordbytes[index] = byte(int8(passwordstruct.Rand[index]) - passwordstruct.Diff[index])
 		}
 
-		if err := bcrypt.CompareHashAndPassword(self.Config.AdminPasswordHash, passwordbytes); err != nil {
+		if err := bcrypt.CompareHashAndPassword(adminpassword, passwordbytes); err != nil {
 			G.logger.Println(err)
 			return err
 		}
@@ -244,7 +256,7 @@ func (self *RegisterIlugc) Run() error {
 			QrCode: nil,
 		}
 
-		chksum, err := self.Db.Chksum(participant)
+		chksum, err := self.Db.ParticipantChksum(participant)
 		if err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
@@ -257,7 +269,7 @@ func (self *RegisterIlugc) Run() error {
 			return
 		}
 		participant.QrCode = qrbuffer.Bytes()
-		if err := self.Db.Write(participant); err != nil {
+		if err := self.Db.ParticipantWrite(participant); err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
@@ -298,7 +310,7 @@ func (self *RegisterIlugc) Run() error {
 
 	http.HandleFunc("/participant/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
 		chksum := request.PathValue("chksum")
-		participant, err := self.Db.Read(chksum)
+		participant, err := self.Db.ParticipantRead(chksum)
 		if err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
@@ -323,7 +335,7 @@ func (self *RegisterIlugc) Run() error {
 
 	http.HandleFunc("/delete/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
 		chksum := request.PathValue("chksum")
-		err := self.Db.Delete(chksum)
+		err := self.Db.ParticipantDelete(chksum)
 		if err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
@@ -340,7 +352,7 @@ func (self *RegisterIlugc) Run() error {
 
 	http.HandleFunc("/qr/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
 		chksum := request.PathValue("chksum")
-		participant, err := self.Db.Read(chksum)
+		participant, err := self.Db.ParticipantRead(chksum)
 		if err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
@@ -419,7 +431,7 @@ func (self *RegisterIlugc) Run() error {
 				return
 			}
 
-			data, err := self.Db.Csv()
+			data, err := self.Db.ParticipantCsv()
 			if err != nil {
 				G.logger.Println(err)
 				http.Error(response, err.Error(), http.StatusBadRequest)

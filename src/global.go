@@ -23,6 +23,11 @@ type Participant struct {
 	QrCode []byte `json:"qrcode"`
 }
 
+type Admin struct {
+	AdminUsername string `json:"adminusername"`
+	AdminPassword []byte `json:"adminpassword"`
+}
+
 func StructToMap(v any) map[string]string {
 	vmap := make(map[string]string)
 	valueof := reflect.ValueOf(v)

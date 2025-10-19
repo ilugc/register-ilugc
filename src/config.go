@@ -1,8 +1,8 @@
 package register
 
 import (
-	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"os"
 
 	"golang.org/x/crypto/bcrypt"
@@ -17,8 +17,8 @@ type Config struct {
 	StopRegistration bool `json:"stopregistration"`
 	AdminUsername string `json:"adminusername"`
 	AdminPassword string `json:"adminpassword"`
-	AdminPasswordBytes []byte `json:"adminpasswordbytes"`
-	AdminPasswordHash []byte `json:"adminpasswordhash"`
+	Admin *Admin
+	Db *Db
 }
 
 func CreateConfig(filename string) *Config {
@@ -32,49 +32,96 @@ func CreateConfig(filename string) *Config {
 	self.Static = ""
 	self.DefaultMax = 0
 	self.StopRegistration = false
+	self.Admin = &Admin{}
+	self.Db = CreateDb()
 	return self
+}
+
+func getAdminPasswordHash(adminpassword string) ([]byte, error) {
+	if len(adminpassword) <= 0 {
+		err := errors.New("Empty AdminPassword")
+		G.logger.Println(err)
+		return nil, err
+	}
+
+	bcryptbytes, err := bcrypt.GenerateFromPassword([]byte(adminpassword), bcrypt.DefaultCost)
+	if err != nil {
+		G.logger.Println(err)
+		return nil, err
+	}
+	return bcryptbytes, nil
+}
+
+func (self *Config) loadAdmin() error {
+	if len(self.AdminUsername) > 0 &&
+		len(self.AdminPassword) > 0 {
+		bcryptpassword, err := getAdminPasswordHash(self.AdminPassword)
+		if err != nil {
+			G.logger.Println(err)
+			return err
+		}
+		admin := &Admin{AdminUsername: self.AdminUsername, AdminPassword: bcryptpassword}
+		if err := self.Db.AdminWrite(admin); err != nil {
+			G.logger.Println(err)
+			return err
+		}
+		self.Admin = admin
+	} else {
+		admin, err := self.Db.AdminRead();
+		if err != nil {
+			G.logger.Println(err)
+			return err
+		}
+		self.Admin = admin
+	}
+	self.AdminUsername = ""
+	self.AdminPassword = ""
+	return nil
 }
 
 func (self *Config) Load() error {
 	content, err := os.ReadFile(self.Filename)
-	if err != nil {
+	if err == nil {
+		if err := json.Unmarshal(content, self); err != nil {
+			G.logger.Println(err)
+		}
+	}
+
+	if err := self.loadAdmin(); err != nil {
+		G.logger.Println(err)
+	}
+	return nil
+}
+
+func (self *Config) Init() error {
+	if err := self.Db.Init(); err != nil {
 		G.logger.Println(err)
 		return err
 	}
 
-	if err := json.Unmarshal(content, self); err != nil {
+	if err := self.Load(); err != nil {
 		G.logger.Println(err)
 		return err
 	}
 	return nil
 }
 
-func (self *Config) GetAdminPassword() string {
-	if len(self.AdminPassword) <= 0 {
-		G.logger.Println("empty AdminPassword")
-		return ""
-	}
-
-	if len(self.AdminPasswordBytes) <= 0 {
-		adminpasswordbytes, err := base64.StdEncoding.DecodeString(self.AdminPassword)
-		if err != nil {
+func (self *Config) GetAdminUsername() (string, error) {
+	if len(self.AdminUsername) > 0 {
+		if err := self.loadAdmin(); err != nil {
 			G.logger.Println(err)
-			return ""
+			return "", err
 		}
-		self.AdminPasswordBytes = adminpasswordbytes
 	}
-
-	if len(self.AdminPasswordHash) <= 0 {
-		bcryptbytes, err := bcrypt.GenerateFromPassword(self.AdminPasswordBytes, bcrypt.DefaultCost)
-		if err != nil {
-			G.logger.Println(err)
-			return ""
-		}
-		self.AdminPasswordHash = bcryptbytes
-	}
-	return string(self.AdminPasswordBytes)
+	return self.Admin.AdminUsername, nil
 }
 
-func (self *Config) Init() error {
-	return self.Load()
+func (self *Config) GetAdminPassword() ([]byte, error) {
+	if len(self.AdminPassword) > 0 {
+		if err := self.loadAdmin(); err != nil {
+			G.logger.Println(err)
+			return nil, err
+		}
+	}
+	return self.Admin.AdminPassword, nil
 }
