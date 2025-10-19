@@ -52,7 +52,7 @@ func getAdminPasswordHash(adminpassword string) ([]byte, error) {
 	return bcryptbytes, nil
 }
 
-func (self *Config) loadAdmin() error {
+func (self *Config) LoadAdmin() error {
 	if len(self.AdminUsername) > 0 &&
 		len(self.AdminPassword) > 0 {
 		bcryptpassword, err := getAdminPasswordHash(self.AdminPassword)
@@ -87,7 +87,7 @@ func (self *Config) Load() error {
 		}
 	}
 
-	if err := self.loadAdmin(); err != nil {
+	if err := self.LoadAdmin(); err != nil {
 		G.logger.Println(err)
 	}
 	return nil
@@ -104,24 +104,4 @@ func (self *Config) Init() error {
 		return err
 	}
 	return nil
-}
-
-func (self *Config) GetAdminUsername() (string, error) {
-	if len(self.AdminUsername) > 0 {
-		if err := self.loadAdmin(); err != nil {
-			G.logger.Println(err)
-			return "", err
-		}
-	}
-	return self.Admin.AdminUsername, nil
-}
-
-func (self *Config) GetAdminPassword() ([]byte, error) {
-	if len(self.AdminPassword) > 0 {
-		if err := self.loadAdmin(); err != nil {
-			G.logger.Println(err)
-			return nil, err
-		}
-	}
-	return self.Admin.AdminPassword, nil
 }

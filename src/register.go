@@ -56,6 +56,14 @@ func CreateRegisterIlugc(config *Config) *RegisterIlugc {
 }
 
 func (self *RegisterIlugc) Init() error {
+	if len(self.Config.AdminUsername) > 0 &&
+		len(self.Config.AdminPassword) > 0 {
+		if err := self.Config.LoadAdmin(); err != nil {
+			G.logger.Println(err)
+			return err
+		}
+	}
+
 	if err := self.Db.Init(); err != nil {
 		G.logger.Println(err)
 		return err
@@ -109,12 +117,7 @@ func (self *RegisterIlugc) IsClosed() (bool, error) {
 func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
 	username, passwordb64, ok := request.BasicAuth()
 
-	adminusername, err := self.Config.GetAdminUsername()
-	if err != nil {
-		G.logger.Println(err)
-		return err
-	}
-	if len(adminusername) > 0 {
+	if len(self.Config.Admin.AdminUsername) > 0 {
 		if ok == false {
 			err := errors.New("Invalid Auth")
 			G.logger.Println(err)
@@ -126,20 +129,15 @@ func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
 			return err
 		}
 
-		if adminusername != username {
+		if self.Config.Admin.AdminUsername != username {
 			err := errors.New("Invalid AdminUsername")
 			G.logger.Println(err)
 			return err
 		}
 	}
 
-	adminpassword, err := self.Config.GetAdminPassword()
-	if err != nil {
-		G.logger.Println(err)
-		return err
-	}
-	if adminpassword != nil &&
-		len(adminpassword) > 0 {
+	if self.Config.Admin.AdminPassword != nil &&
+		len(self.Config.Admin.AdminPassword) > 0 {
 		if ok == false {
 			err := errors.New("Invalid Auth")
 			G.logger.Println(err)
@@ -178,7 +176,7 @@ func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
 			passwordbytes[index] = byte(int8(passwordstruct.Rand[index]) - passwordstruct.Diff[index])
 		}
 
-		if err := bcrypt.CompareHashAndPassword(adminpassword, passwordbytes); err != nil {
+		if err := bcrypt.CompareHashAndPassword(self.Config.Admin.AdminPassword, passwordbytes); err != nil {
 			G.logger.Println(err)
 			return err
 		}
