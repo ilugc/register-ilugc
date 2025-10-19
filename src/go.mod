@@ -8,6 +8,7 @@ require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	gorm.io/gorm v1.31.0
 )
 

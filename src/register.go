@@ -19,6 +19,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthToken struct {
@@ -125,7 +127,7 @@ func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
 		}
 	}
 
-	if len(self.Config.AdminPassword) > 0 {
+	if len(self.Config.GetAdminPassword()) > 0 {
 		if ok == false {
 			err := errors.New("Invalid Auth")
 			G.logger.Println(err)
@@ -163,12 +165,9 @@ func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
 		for index := 0; index < len(passwordstruct.Diff); index++ {
 			passwordbytes[index] = byte(int8(passwordstruct.Rand[index]) - passwordstruct.Diff[index])
 		}
-		password256sum := sha256.Sum256(passwordbytes)
-		password := hex.EncodeToString(password256sum[:])
 
-		if self.Config.AdminPassword != password {
-			G.logger.Println("Invalid AdminPassword :", self.Config.AdminPassword, password)
-			err := errors.New("Invalid AdminPassword")
+		if err := bcrypt.CompareHashAndPassword(self.Config.AdminPasswordHash, passwordbytes); err != nil {
+			G.logger.Println(err)
 			return err
 		}
 	}

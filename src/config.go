@@ -1,8 +1,11 @@
 package register
 
 import (
-	"os"
+	"encoding/base64"
 	"encoding/json"
+	"os"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Config struct {
@@ -14,6 +17,8 @@ type Config struct {
 	StopRegistration bool `json:"stopregistration"`
 	AdminUsername string `json:"adminusername"`
 	AdminPassword string `json:"adminpassword"`
+	AdminPasswordBytes []byte `json:"adminpasswordbytes"`
+	AdminPasswordHash []byte `json:"adminpasswordhash"`
 }
 
 func CreateConfig(filename string) *Config {
@@ -42,6 +47,32 @@ func (self *Config) Load() error {
 		return err
 	}
 	return nil
+}
+
+func (self *Config) GetAdminPassword() string {
+	if len(self.AdminPassword) <= 0 {
+		G.logger.Println("empty AdminPassword")
+		return ""
+	}
+
+	if len(self.AdminPasswordBytes) <= 0 {
+		adminpasswordbytes, err := base64.StdEncoding.DecodeString(self.AdminPassword)
+		if err != nil {
+			G.logger.Println(err)
+			return ""
+		}
+		self.AdminPasswordBytes = adminpasswordbytes
+	}
+
+	if len(self.AdminPasswordHash) <= 0 {
+		bcryptbytes, err := bcrypt.GenerateFromPassword(self.AdminPasswordBytes, bcrypt.DefaultCost)
+		if err != nil {
+			G.logger.Println(err)
+			return ""
+		}
+		self.AdminPasswordHash = bcryptbytes
+	}
+	return string(self.AdminPasswordBytes)
 }
 
 func (self *Config) Init() error {
