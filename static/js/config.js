@@ -17,10 +17,6 @@ global.change.addEventListener("click", (event) => {
 	}
 
 	switch (el.id) {
-	case "AdminPassword": {
-	    body.AdminPassword = btoa(el.value);
-	    break;
-	}
 	case "DefaultMax": {
 	    body.DefaultMax = parseInt(el.value);
 	    break;
@@ -37,8 +33,9 @@ global.change.addEventListener("click", (event) => {
 
     fetch("/config/", {
 	method: "POST",
-	header: {
-	    "Content-Type": "application/json"
+	headers: {
+	    "Content-Type": "application/json",
+	    "Authorization": "Basic " + genAuth()
 	},
 	body: JSON.stringify(body)
     }).then((response) => {

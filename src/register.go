@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/gob"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -101,31 +103,72 @@ func (self *RegisterIlugc) IsClosed() (bool, error) {
 	return false, nil
 }
 
-func (self *RegisterIlugc) CheckAuth(body map[string]any) error {
+func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
+	username, passwordb64, ok := request.BasicAuth()
+
 	if len(self.Config.AdminUsername) > 0 {
-		username, ok := body["AdminUsername"]
 		if ok == false {
-			err := errors.New("AdminUsername not sent")
+			err := errors.New("Invalid Auth")
+			G.logger.Println(err)
 			return err
 		}
-		username = username.(string)
-		delete(body, "AdminUsername")
+		if len(username) <= 0 {
+			err := errors.New("Invalid AuthUsername")
+			G.logger.Println(err)
+			return err
+		}
+
 		if self.Config.AdminUsername != username {
-			err := errors.New("Authendication Failed")
+			err := errors.New("Invalid AdminUsername")
+			G.logger.Println(err)
 			return err
 		}
 	}
 
 	if len(self.Config.AdminPassword) > 0 {
-		password, ok := body["AdminPassword"]
 		if ok == false {
-			err := errors.New("AdminPassword not sent")
+			err := errors.New("Invalid Auth")
+			G.logger.Println(err)
 			return err
 		}
-		password = password.(string)
-		delete(body, "AdminPassword")
+		if len(passwordb64) <= 0 {
+			err := errors.New("Invalid AdminPassoword")
+			G.logger.Println(err)
+			return err
+		}
+
+		passwordbytes, err := base64.StdEncoding.DecodeString(passwordb64)
+		if err != nil {
+			G.logger.Println(err)
+			return err
+		}
+		type PasswordType struct {
+			Rand []byte `json:"rand"`
+			Diff []int8 `json:"diff"`
+		}
+		passwordstruct := &PasswordType{}
+		if err := json.Unmarshal(passwordbytes, passwordstruct); err != nil {
+			G.logger.Println(err)
+			return err
+		}
+
+		if len(passwordstruct.Rand) <= 0 ||
+			len(passwordstruct.Diff) <= 0 {
+			err := errors.New("Invalid AdminPassoword Data")
+			G.logger.Println(err)
+			return err
+		}
+
+		passwordbytes = make([]byte, len(passwordstruct.Diff))
+		for index := 0; index < len(passwordstruct.Diff); index++ {
+			passwordbytes[index] = byte(int8(passwordstruct.Rand[index]) - passwordstruct.Diff[index])
+		}
+		password256sum := sha256.Sum256(passwordbytes)
+		password := hex.EncodeToString(password256sum[:])
+
 		if self.Config.AdminPassword != password {
-			err := errors.New("Authendication Failed")
+			G.logger.Println("Invalid AdminPassword :", self.Config.AdminPassword, password)
+			err := errors.New("Invalid AdminPassword")
 			return err
 		}
 	}
@@ -336,7 +379,7 @@ func (self *RegisterIlugc) Run() error {
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err = self.CheckAuth(body); err != nil {
+		if err = self.CheckAuth(request); err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
@@ -400,7 +443,7 @@ func (self *RegisterIlugc) Run() error {
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err = self.CheckAuth(body); err != nil {
+		if err = self.CheckAuth(request); err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return

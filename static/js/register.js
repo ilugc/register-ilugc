@@ -70,7 +70,7 @@ global.register.addEventListener("click", (event) => {
 
     fetch("/register/", {
 	method: "POST",
-	header: {
+	headers: {
 	    "Content-Type": "application/json"
 	},
 	body: JSON.stringify({name: pname.value, email: pemail.value, mobile: pmobile.value, org: porg.value, place: pplace.value})
