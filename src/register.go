@@ -1,8 +1,11 @@
 package register
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,12 +19,17 @@ import (
 	"time"
 )
 
+type AuthToken struct {
+	Now time.Time
+	Rand string
+}
+
 type RegisterIlugc struct {
 	Config *Config
 	Server *http.Server
 	Db *Db
 	Qr *Qr
-	AuthToken map[string]string
+	AuthToken map[string]*AuthToken
 }
 
 func CreateRegisterIlugc(config *Config) *RegisterIlugc {
@@ -39,7 +47,7 @@ func CreateRegisterIlugc(config *Config) *RegisterIlugc {
 
 	self.Db = CreateDb()
 	self.Qr = CreateQr()
-	self.AuthToken = make(map[string]string)
+	self.AuthToken = make(map[string]*AuthToken)
 	return self
 }
 
@@ -122,6 +130,19 @@ func (self *RegisterIlugc) CheckAuth(body map[string]any) error {
 		}
 	}
 	return nil
+}
+
+func (self *RegisterIlugc) GenAuthToken() (string, error) {
+	authtoken := &AuthToken{Now: time.Now().UTC(), Rand: rand.Text()}
+	buffer := bytes.NewBuffer(nil)
+	encoder := gob.NewEncoder(buffer)
+	if err := encoder.Encode(authtoken); err != nil {
+		G.logger.Println(err)
+		return "", err
+	}
+	hash := base64.URLEncoding.EncodeToString(buffer.Bytes())
+	self.AuthToken[hash] = authtoken
+	return hash, nil
 }
 
 func (self *RegisterIlugc) Run() error {
@@ -339,7 +360,7 @@ func (self *RegisterIlugc) Run() error {
 				}
 				return
 			}
-			timestr, ok := self.AuthToken[hashdata]
+			authtoken, ok := self.AuthToken[hashdata]
 			if ok == false {
 				err := errors.New("No Auth Token")
 				G.logger.Println(err)
@@ -348,14 +369,7 @@ func (self *RegisterIlugc) Run() error {
 			}
 			delete(self.AuthToken, hashdata)
 
-			reqtime, err := time.Parse(time.RFC3339Nano, timestr)
-			if err != nil {
-				G.logger.Println(err)
-				http.Error(response, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			if time.Now().UTC().Sub(reqtime).Seconds() > 30 {
+			if time.Now().UTC().Sub(authtoken.Now).Seconds() > 30 {
 				err := errors.New("Invalid Auth Token")
 				G.logger.Println(err)
 				http.Error(response, err.Error(), http.StatusBadRequest)
@@ -392,9 +406,12 @@ func (self *RegisterIlugc) Run() error {
 			return
 		}
 
-		nowstring := time.Now().UTC().Format(time.RFC3339Nano)
-		hash := base64.URLEncoding.EncodeToString([]byte(nowstring))
-		self.AuthToken[hash] = nowstring
+		hash, err := self.GenAuthToken()
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
 		type CsvResp struct {
 			Hash string `json:"hash"`
 		}
