@@ -23,9 +23,9 @@ type MParticipant struct {
 	Participant
 }
 
-type MAdmin struct {
+type MConfigDetails struct {
 	gorm.Model
-	Admin
+	ConfigDetails
 }
 
 func CreateDb() *Db {
@@ -44,7 +44,7 @@ func (self *Db) Init() error {
 		G.logger.Println(err)
 		return err
 	}
-	if err = self.Db.AutoMigrate(&MAdmin{}); err != nil {
+	if err = self.Db.AutoMigrate(&MConfigDetails{}); err != nil {
 		G.logger.Println(err)
 		return err
 	}
@@ -166,26 +166,26 @@ func (self *Db) ParticipantCsv() ([]byte, error) {
 	return csvbuffer.Bytes(), nil
 }
 
-func (self *Db) AdminWrite(admin *Admin) error {
+func (self *Db) ConfigDetailsWrite(configdetails *ConfigDetails) error {
 	ctx := context.Background()
-	_, err := gorm.G[MAdmin](self.Db).Where("1 = 1").Delete(ctx)
+	_, err := gorm.G[MConfigDetails](self.Db).Where("1 = 1").Delete(ctx)
 	if err != nil {
 		G.logger.Println(err)
 		return err
 	}
-	if err := gorm.G[MAdmin](self.Db).Create(ctx, &MAdmin{Admin: *admin}); err != nil {
+	if err := gorm.G[MConfigDetails](self.Db).Create(ctx, &MConfigDetails{ConfigDetails: *configdetails}); err != nil {
 		G.logger.Println(err)
 		return err
 	}
 	return nil
 }
 
-func (self *Db) AdminRead() (*Admin, error) {
+func (self *Db) ConfigDetailsRead() (*ConfigDetails, error) {
 	ctx := context.Background()
-	madmin, err := gorm.G[MAdmin](self.Db).First(ctx)
+	mconfigdetails, err := gorm.G[MConfigDetails](self.Db).First(ctx)
 	if err != nil {
 		G.logger.Println(err)
 		return nil, err
 	}
-	return &madmin.Admin, nil
+	return &mconfigdetails.ConfigDetails, nil
 }

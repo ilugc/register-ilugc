@@ -43,6 +43,13 @@ func main() {
 		}
 	}
 
+	if len(os.Args) > 1 {
+		if err := config.WriteConfigDetails(); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	}
+
 	register := register.CreateRegisterIlugc(config)
 	if err := register.Init(); err != nil {
 		fmt.Println(err)

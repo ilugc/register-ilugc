@@ -19,8 +19,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthToken struct {
@@ -56,14 +54,6 @@ func CreateRegisterIlugc(config *Config) *RegisterIlugc {
 }
 
 func (self *RegisterIlugc) Init() error {
-	if len(self.Config.AdminUsername) > 0 &&
-		len(self.Config.AdminPassword) > 0 {
-		if err := self.Config.LoadAdmin(); err != nil {
-			G.logger.Println(err)
-			return err
-		}
-	}
-
 	if err := self.Db.Init(); err != nil {
 		G.logger.Println(err)
 		return err
@@ -117,7 +107,7 @@ func (self *RegisterIlugc) IsClosed() (bool, error) {
 func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
 	username, passwordb64, ok := request.BasicAuth()
 
-	if len(self.Config.Admin.AdminUsername) > 0 {
+	if len(self.Config.AdminUsername) > 0 {
 		if ok == false {
 			err := errors.New("Invalid Auth")
 			G.logger.Println(err)
@@ -129,27 +119,28 @@ func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
 			return err
 		}
 
-		if self.Config.Admin.AdminUsername != username {
+		if self.Config.AdminUsername != username {
 			err := errors.New("Invalid AdminUsername")
 			G.logger.Println(err)
 			return err
 		}
 	}
 
-	if self.Config.Admin.AdminPassword != nil &&
-		len(self.Config.Admin.AdminPassword) > 0 {
+	if self.Config.AdminPasswordHash != nil &&
+		len(self.Config.AdminPasswordHash) > 0 {
 		if ok == false {
 			err := errors.New("Invalid Auth")
 			G.logger.Println(err)
 			return err
 		}
+
 		if len(passwordb64) <= 0 {
 			err := errors.New("Invalid AdminPassoword")
 			G.logger.Println(err)
 			return err
 		}
 
-		passwordbytes, err := base64.StdEncoding.DecodeString(passwordb64)
+		passworddata, err := base64.StdEncoding.DecodeString(passwordb64)
 		if err != nil {
 			G.logger.Println(err)
 			return err
@@ -159,7 +150,7 @@ func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
 			Diff []int8 `json:"diff"`
 		}
 		passwordstruct := &PasswordType{}
-		if err := json.Unmarshal(passwordbytes, passwordstruct); err != nil {
+		if err := json.Unmarshal(passworddata, passwordstruct); err != nil {
 			G.logger.Println(err)
 			return err
 		}
@@ -171,12 +162,12 @@ func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
 			return err
 		}
 
-		passwordbytes = make([]byte, len(passwordstruct.Diff))
+		passwordbytes := make([]byte, len(passwordstruct.Diff))
 		for index := 0; index < len(passwordstruct.Diff); index++ {
 			passwordbytes[index] = byte(int8(passwordstruct.Rand[index]) - passwordstruct.Diff[index])
 		}
 
-		if err := bcrypt.CompareHashAndPassword(self.Config.Admin.AdminPassword, passwordbytes); err != nil {
+		if err := self.Config.ComparePassword(passwordbytes); err != nil {
 			G.logger.Println(err)
 			return err
 		}
@@ -389,13 +380,18 @@ func (self *RegisterIlugc) Run() error {
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err = self.CheckAuth(request); err != nil {
+		if err := self.CheckAuth(request); err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
 		
 		StructSetFromMap(self.Config, body)
+		if err := self.Config.WriteConfigDetails(); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
 		response.Write([]byte("Config Updated"))
 	})
 

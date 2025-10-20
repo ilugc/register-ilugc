@@ -9,15 +9,9 @@ import (
 )
 
 type Config struct {
+	ConfigDetails
 	Filename string `json:"filename"`
-	Domain string `json:"domain"`
-	Hostport string `json:"hostport"`
-	Static string `json:"static"`
-	DefaultMax int64 `json:"defaultmax"`
-	StopRegistration bool `json:"stopregistration"`
-	AdminUsername string `json:"adminusername"`
 	AdminPassword string `json:"adminpassword"`
-	Admin *Admin
 	Db *Db
 }
 
@@ -32,7 +26,6 @@ func CreateConfig(filename string) *Config {
 	self.Static = ""
 	self.DefaultMax = 0
 	self.StopRegistration = false
-	self.Admin = &Admin{}
 	self.Db = CreateDb()
 	return self
 }
@@ -52,44 +45,48 @@ func getAdminPasswordHash(adminpassword string) ([]byte, error) {
 	return bcryptbytes, nil
 }
 
-func (self *Config) LoadAdmin() error {
+func (self *Config) WriteConfigDetails() error {
 	if len(self.AdminUsername) > 0 &&
 		len(self.AdminPassword) > 0 {
 		bcryptpassword, err := getAdminPasswordHash(self.AdminPassword)
 		if err != nil {
 			G.logger.Println(err)
-			return err
+		} else {
+			self.AdminPasswordHash = bcryptpassword
 		}
-		admin := &Admin{AdminUsername: self.AdminUsername, AdminPassword: bcryptpassword}
-		if err := self.Db.AdminWrite(admin); err != nil {
-			G.logger.Println(err)
-			return err
-		}
-		self.Admin = admin
-	} else {
-		admin, err := self.Db.AdminRead();
-		if err != nil {
-			G.logger.Println(err)
-			return err
-		}
-		self.Admin = admin
+		self.AdminPassword = ""
 	}
-	self.AdminUsername = ""
-	self.AdminPassword = ""
+	if err := self.Db.ConfigDetailsWrite(&self.ConfigDetails); err != nil {
+		G.logger.Println(err)
+		return err
+	}
+	return nil
+}
+
+func (self *Config) LoadConfigDetails() error {
+	configdetails, err := self.Db.ConfigDetailsRead();
+	if err != nil {
+		G.logger.Println(err)
+		return err
+	}
+	self.ConfigDetails = *configdetails
 	return nil
 }
 
 func (self *Config) Load() error {
+	self.LoadConfigDetails()
 	content, err := os.ReadFile(self.Filename)
 	if err == nil {
 		if err := json.Unmarshal(content, self); err != nil {
 			G.logger.Println(err)
+			return err
+		}
+		if err := self.WriteConfigDetails(); err != nil {
+			G.logger.Println(err)
+			return err
 		}
 	}
 
-	if err := self.LoadAdmin(); err != nil {
-		G.logger.Println(err)
-	}
 	return nil
 }
 
@@ -100,6 +97,14 @@ func (self *Config) Init() error {
 	}
 
 	if err := self.Load(); err != nil {
+		G.logger.Println(err)
+		return err
+	}
+	return nil
+}
+
+func (self *Config) ComparePassword(passwordbytes []byte) error {
+	if err := bcrypt.CompareHashAndPassword(self.AdminPasswordHash, passwordbytes); err != nil {
 		G.logger.Println(err)
 		return err
 	}
