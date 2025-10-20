@@ -47,16 +47,16 @@ curl -v http://localhost:2203
 
 ### Config
 
-You can create `default.config` file in the current directory where you run `register` binary to configure it.
+You can create `default.config` file in the current directory where you run `register` binary to configure it. This config will be loaded into db. So no need to keep it all the time. Its a security issue keeping the plaintext password in the config file under the working directory.
 ```json
 {
-    "hostport": ":2203",
-    "domain": "https://register.ilugc.in",
-    "static": "",
-    "defaultmax": 0,
-    "stopregistration": false,
-    "adminusername": "",
-    "adminpassword": ""
+"hostport": ":2203",
+"domain": "https://register.ilugc.in",
+"static": "",
+"defaultmax": 0,
+"stopregistration": false,
+"adminusername": "",
+"adminpassword": ""
 }
 ```
 
@@ -66,7 +66,4 @@ You can create `default.config` file in the current directory where you run `reg
 - `defaultmax` :: if zero, no limitation, otherwise only allow participants upto this number.
 - `stopregistration` :: simply stop registration.
 - `adminusername` :: Administrator Username (used for `Auth Required` endpoints)
-- `adminpassword` :: Administrator Password (used for `Auth Required` endpoints). It **should** be **base64 encoded** string. You can easily generate it using following commandline in bash shell
-```console
-echo -n "password" | base64
-```
+- `adminpassword` :: Administrator Password (used for `Auth Required` endpoints). This password will be converted using bcrypt and stored into db.
