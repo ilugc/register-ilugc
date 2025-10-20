@@ -50,7 +50,7 @@ func main() {
 		}
 	}
 
-	register := register.CreateRegisterIlugc(config)
+	register := register.CreateRegister(config)
 	if err := register.Init(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

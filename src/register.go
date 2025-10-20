@@ -26,7 +26,7 @@ type AuthToken struct {
 	Rand string
 }
 
-type RegisterIlugc struct {
+type Register struct {
 	Config *Config
 	Server *http.Server
 	Db *Db
@@ -34,8 +34,8 @@ type RegisterIlugc struct {
 	AuthToken map[string]*AuthToken
 }
 
-func CreateRegisterIlugc(config *Config) *RegisterIlugc {
-	self := &RegisterIlugc{}
+func CreateRegister(config *Config) *Register {
+	self := &Register{}
 
 	self.Config = config
 	if self.Config == nil {
@@ -53,7 +53,7 @@ func CreateRegisterIlugc(config *Config) *RegisterIlugc {
 	return self
 }
 
-func (self *RegisterIlugc) Init() error {
+func (self *Register) Init() error {
 	if err := self.Db.Init(); err != nil {
 		G.logger.Println(err)
 		return err
@@ -76,7 +76,7 @@ func (self *RegisterIlugc) Init() error {
 	return nil
 }
 
-func (self *RegisterIlugc) Close() {
+func (self *Register) Close() {
 	db, err := self.Db.Db.DB()
 	if err != nil {
 		G.logger.Println(err)
@@ -87,7 +87,7 @@ func (self *RegisterIlugc) Close() {
 	}
 }
 
-func (self *RegisterIlugc) IsClosed() (bool, error) {
+func (self *Register) IsClosed() (bool, error) {
 	if self.Config.StopRegistration == true {
 		return true, nil
 	}
@@ -104,7 +104,7 @@ func (self *RegisterIlugc) IsClosed() (bool, error) {
 	return false, nil
 }
 
-func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
+func (self *Register) CheckAuth(request *http.Request) error {
 	username, passwordb64, ok := request.BasicAuth()
 
 	if len(self.Config.AdminUsername) > 0 {
@@ -175,7 +175,7 @@ func (self *RegisterIlugc) CheckAuth(request *http.Request) error {
 	return nil
 }
 
-func (self *RegisterIlugc) GenAuthToken() (string, error) {
+func (self *Register) GenAuthToken() (string, error) {
 	authtoken := &AuthToken{Now: time.Now().UTC(), Rand: rand.Text()}
 	buffer := bytes.NewBuffer(nil)
 	encoder := gob.NewEncoder(buffer)
@@ -189,7 +189,7 @@ func (self *RegisterIlugc) GenAuthToken() (string, error) {
 	return hashstr, nil
 }
 
-func (self *RegisterIlugc) Run() error {
+func (self *Register) Run() error {
 	defer self.Close()
 
 	http.HandleFunc("/{$}", func(response http.ResponseWriter, request *http.Request) {
