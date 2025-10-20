@@ -35,7 +35,7 @@ func CreateDb() *Db {
 
 func (self *Db) Init() error {
 	var err error
-	self.Db, err = gorm.Open(sqlite.Open("participants.db"), &gorm.Config{})
+	self.Db, err = gorm.Open(sqlite.Open("register.db"), &gorm.Config{})
 	if err != nil {
 		G.logger.Println(err)
 		return err
