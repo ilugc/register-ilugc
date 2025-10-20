@@ -1,19 +1,18 @@
 package register
 
 import (
-	"os"
 	"encoding/json"
+	"errors"
+	"os"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Config struct {
+	ConfigDetails
 	Filename string `json:"filename"`
-	Domain string `json:"domain"`
-	Hostport string `json:"hostport"`
-	Static string `json:"static"`
-	DefaultMax int64 `json:"defaultmax"`
-	StopRegistration bool `json:"stopregistration"`
-	AdminUsername string `json:"adminusername"`
 	AdminPassword string `json:"adminpassword"`
+	Db *Db
 }
 
 func CreateConfig(filename string) *Config {
@@ -27,23 +26,87 @@ func CreateConfig(filename string) *Config {
 	self.Static = ""
 	self.DefaultMax = 0
 	self.StopRegistration = false
+	self.Db = CreateDb()
 	return self
 }
 
-func (self *Config) Load() error {
-	content, err := os.ReadFile(self.Filename)
-	if err != nil {
+func getAdminPasswordHash(adminpassword string) ([]byte, error) {
+	if len(adminpassword) <= 0 {
+		err := errors.New("Empty AdminPassword")
 		G.logger.Println(err)
-		return err
+		return nil, err
 	}
 
-	if err := json.Unmarshal(content, self); err != nil {
+	bcryptbytes, err := bcrypt.GenerateFromPassword([]byte(adminpassword), bcrypt.DefaultCost)
+	if err != nil {
+		G.logger.Println(err)
+		return nil, err
+	}
+	return bcryptbytes, nil
+}
+
+func (self *Config) WriteConfigDetails() error {
+	if len(self.AdminUsername) > 0 &&
+		len(self.AdminPassword) > 0 {
+		bcryptpassword, err := getAdminPasswordHash(self.AdminPassword)
+		if err != nil {
+			G.logger.Println(err)
+		} else {
+			self.AdminPasswordHash = bcryptpassword
+		}
+		self.AdminPassword = ""
+	}
+	if err := self.Db.ConfigDetailsWrite(&self.ConfigDetails); err != nil {
 		G.logger.Println(err)
 		return err
 	}
 	return nil
 }
 
+func (self *Config) LoadConfigDetails() error {
+	configdetails, err := self.Db.ConfigDetailsRead();
+	if err != nil {
+		G.logger.Println(err)
+		return err
+	}
+	self.ConfigDetails = *configdetails
+	return nil
+}
+
+func (self *Config) Load() error {
+	self.LoadConfigDetails()
+	content, err := os.ReadFile(self.Filename)
+	if err == nil {
+		if err := json.Unmarshal(content, self); err != nil {
+			G.logger.Println(err)
+			return err
+		}
+		if err := self.WriteConfigDetails(); err != nil {
+			G.logger.Println(err)
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (self *Config) Init() error {
-	return self.Load()
+	if err := self.Db.Init(); err != nil {
+		G.logger.Println(err)
+		return err
+	}
+
+	if err := self.Load(); err != nil {
+		G.logger.Println(err)
+		return err
+	}
+	return nil
+}
+
+func (self *Config) ComparePassword(passwordbytes []byte) error {
+	if err := bcrypt.CompareHashAndPassword(self.AdminPasswordHash, passwordbytes); err != nil {
+		G.logger.Println(err)
+		return err
+	}
+	return nil
 }

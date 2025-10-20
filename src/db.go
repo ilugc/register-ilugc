@@ -23,6 +23,11 @@ type MParticipant struct {
 	Participant
 }
 
+type MConfigDetails struct {
+	gorm.Model
+	ConfigDetails
+}
+
 func CreateDb() *Db {
 	self := &Db{}
 	return self
@@ -30,7 +35,7 @@ func CreateDb() *Db {
 
 func (self *Db) Init() error {
 	var err error
-	self.Db, err = gorm.Open(sqlite.Open("participants.db"), &gorm.Config{})
+	self.Db, err = gorm.Open(sqlite.Open("register.db"), &gorm.Config{})
 	if err != nil {
 		G.logger.Println(err)
 		return err
@@ -39,10 +44,14 @@ func (self *Db) Init() error {
 		G.logger.Println(err)
 		return err
 	}
+	if err = self.Db.AutoMigrate(&MConfigDetails{}); err != nil {
+		G.logger.Println(err)
+		return err
+	}
 	return nil
 }
 
-func (self *Db) Chksum(participant *Participant) (string, error) {
+func (self *Db) ParticipantChksum(participant *Participant) (string, error) {
 	hash := fnv.New64()
 	if _, err := hash.Write([]byte(participant.Name)); err != nil {
 		G.logger.Println(err)
@@ -60,8 +69,8 @@ func (self *Db) Chksum(participant *Participant) (string, error) {
 	return chksum, nil
 }
 
-func (self *Db) Write(participant *Participant) error {
-	chksum, err := self.Chksum(participant)
+func (self *Db) ParticipantWrite(participant *Participant) error {
+	chksum, err := self.ParticipantChksum(participant)
 	if err != nil {
 		G.logger.Println(err)
 		return err
@@ -84,7 +93,7 @@ func (self *Db) Write(participant *Participant) error {
 	return nil
 }
 
-func (self *Db) Read(chksum string) (*Participant, error) {
+func (self *Db) ParticipantRead(chksum string) (*Participant, error) {
 	if len(chksum) <= 0 {
 		err := errors.New("Empty chksum")
 		G.logger.Println(err)
@@ -100,7 +109,7 @@ func (self *Db) Read(chksum string) (*Participant, error) {
 	return &mparticipant.Participant, nil
 }
 
-func (self *Db) Delete(chksum string) error {
+func (self *Db) ParticipantDelete(chksum string) error {
 	if len(chksum) <= 0 {
 		err := errors.New("Empty chksum")
 		G.logger.Println(err)
@@ -116,7 +125,7 @@ func (self *Db) Delete(chksum string) error {
 	return nil
 }
 
-func (self *Db) Count() (int64, error) {
+func (self *Db) ParticipantCount() (int64, error) {
 	ctx := context.Background()
 	count, err := gorm.G[MParticipant](self.Db).Count(ctx, "")
 	if err != nil {
@@ -126,7 +135,7 @@ func (self *Db) Count() (int64, error) {
 	return count, nil
 }
 
-func (self *Db) Csv() ([]byte, error) {
+func (self *Db) ParticipantCsv() ([]byte, error) {
 	ctx := context.Background()
 	mparticipants, err := gorm.G[MParticipant](self.Db).Find(ctx)
 	if err != nil {
@@ -155,4 +164,28 @@ func (self *Db) Csv() ([]byte, error) {
 		csvwriter.Flush()
 	}
 	return csvbuffer.Bytes(), nil
+}
+
+func (self *Db) ConfigDetailsWrite(configdetails *ConfigDetails) error {
+	ctx := context.Background()
+	_, err := gorm.G[MConfigDetails](self.Db).Where("1 = 1").Delete(ctx)
+	if err != nil {
+		G.logger.Println(err)
+		return err
+	}
+	if err := gorm.G[MConfigDetails](self.Db).Create(ctx, &MConfigDetails{ConfigDetails: *configdetails}); err != nil {
+		G.logger.Println(err)
+		return err
+	}
+	return nil
+}
+
+func (self *Db) ConfigDetailsRead() (*ConfigDetails, error) {
+	ctx := context.Background()
+	mconfigdetails, err := gorm.G[MConfigDetails](self.Db).First(ctx)
+	if err != nil {
+		G.logger.Println(err)
+		return nil, err
+	}
+	return &mconfigdetails.ConfigDetails, nil
 }

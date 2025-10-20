@@ -34,8 +34,9 @@ global.download.addEventListener("click", (event) => {
 
     fetch("/csv/", {
 	method: "POST",
-	header: {
-	    "Content-Type": "application/json"
+	headers: {
+	    "Content-Type": "application/json",
+	    "Authorization": "Basic " + genAuth()
 	},
 	body: JSON.stringify(body)
     }).then((response) => {

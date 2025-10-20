@@ -1,8 +1,13 @@
 package register
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/gob"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,16 +21,21 @@ import (
 	"time"
 )
 
-type RegisterIlugc struct {
+type AuthToken struct {
+	Now time.Time
+	Rand string
+}
+
+type Register struct {
 	Config *Config
 	Server *http.Server
 	Db *Db
 	Qr *Qr
-	AuthToken map[string]string
+	AuthToken map[string]*AuthToken
 }
 
-func CreateRegisterIlugc(config *Config) *RegisterIlugc {
-	self := &RegisterIlugc{}
+func CreateRegister(config *Config) *Register {
+	self := &Register{}
 
 	self.Config = config
 	if self.Config == nil {
@@ -39,15 +49,16 @@ func CreateRegisterIlugc(config *Config) *RegisterIlugc {
 
 	self.Db = CreateDb()
 	self.Qr = CreateQr()
-	self.AuthToken = make(map[string]string)
+	self.AuthToken = make(map[string]*AuthToken)
 	return self
 }
 
-func (self *RegisterIlugc) Init() error {
+func (self *Register) Init() error {
 	if err := self.Db.Init(); err != nil {
 		G.logger.Println(err)
 		return err
 	}
+
 	if err := self.Qr.Init(); err != nil {
 		G.logger.Println(err)
 		return err
@@ -65,7 +76,7 @@ func (self *RegisterIlugc) Init() error {
 	return nil
 }
 
-func (self *RegisterIlugc) Close() {
+func (self *Register) Close() {
 	db, err := self.Db.Db.DB()
 	if err != nil {
 		G.logger.Println(err)
@@ -76,12 +87,12 @@ func (self *RegisterIlugc) Close() {
 	}
 }
 
-func (self *RegisterIlugc) IsClosed() (bool, error) {
+func (self *Register) IsClosed() (bool, error) {
 	if self.Config.StopRegistration == true {
 		return true, nil
 	}
 
-	count, err := self.Db.Count()
+	count, err := self.Db.ParticipantCount()
 	if err != nil {
 		G.logger.Println(err)
 		return false, err
@@ -93,38 +104,92 @@ func (self *RegisterIlugc) IsClosed() (bool, error) {
 	return false, nil
 }
 
-func (self *RegisterIlugc) CheckAuth(body map[string]any) error {
+func (self *Register) CheckAuth(request *http.Request) error {
+	username, passwordb64, ok := request.BasicAuth()
+
 	if len(self.Config.AdminUsername) > 0 {
-		username, ok := body["AdminUsername"]
 		if ok == false {
-			err := errors.New("AdminUsername not sent")
+			err := errors.New("Invalid Auth")
+			G.logger.Println(err)
 			return err
 		}
-		username = username.(string)
-		delete(body, "AdminUsername")
+		if len(username) <= 0 {
+			err := errors.New("Invalid AuthUsername")
+			G.logger.Println(err)
+			return err
+		}
+
 		if self.Config.AdminUsername != username {
-			err := errors.New("Authendication Failed")
+			err := errors.New("Invalid AdminUsername")
+			G.logger.Println(err)
 			return err
 		}
 	}
 
-	if len(self.Config.AdminPassword) > 0 {
-		password, ok := body["AdminPassword"]
+	if self.Config.AdminPasswordHash != nil &&
+		len(self.Config.AdminPasswordHash) > 0 {
 		if ok == false {
-			err := errors.New("AdminPassword not sent")
+			err := errors.New("Invalid Auth")
+			G.logger.Println(err)
 			return err
 		}
-		password = password.(string)
-		delete(body, "AdminPassword")
-		if self.Config.AdminPassword != password {
-			err := errors.New("Authendication Failed")
+
+		if len(passwordb64) <= 0 {
+			err := errors.New("Invalid AdminPassoword")
+			G.logger.Println(err)
+			return err
+		}
+
+		passworddata, err := base64.StdEncoding.DecodeString(passwordb64)
+		if err != nil {
+			G.logger.Println(err)
+			return err
+		}
+		type PasswordType struct {
+			Rand []byte `json:"rand"`
+			Diff []int8 `json:"diff"`
+		}
+		passwordstruct := &PasswordType{}
+		if err := json.Unmarshal(passworddata, passwordstruct); err != nil {
+			G.logger.Println(err)
+			return err
+		}
+
+		if len(passwordstruct.Rand) <= 0 ||
+			len(passwordstruct.Diff) <= 0 {
+			err := errors.New("Invalid AdminPassoword Data")
+			G.logger.Println(err)
+			return err
+		}
+
+		passwordbytes := make([]byte, len(passwordstruct.Diff))
+		for index := 0; index < len(passwordstruct.Diff); index++ {
+			passwordbytes[index] = byte(int8(passwordstruct.Rand[index]) - passwordstruct.Diff[index])
+		}
+
+		if err := self.Config.ComparePassword(passwordbytes); err != nil {
+			G.logger.Println(err)
 			return err
 		}
 	}
 	return nil
 }
 
-func (self *RegisterIlugc) Run() error {
+func (self *Register) GenAuthToken() (string, error) {
+	authtoken := &AuthToken{Now: time.Now().UTC(), Rand: rand.Text()}
+	buffer := bytes.NewBuffer(nil)
+	encoder := gob.NewEncoder(buffer)
+	if err := encoder.Encode(authtoken); err != nil {
+		G.logger.Println(err)
+		return "", err
+	}
+	hash := sha256.Sum256(buffer.Bytes())
+	hashstr := hex.EncodeToString(hash[:])
+	self.AuthToken[hashstr] = authtoken
+	return hashstr, nil
+}
+
+func (self *Register) Run() error {
 	defer self.Close()
 
 	http.HandleFunc("/{$}", func(response http.ResponseWriter, request *http.Request) {
@@ -180,7 +245,7 @@ func (self *RegisterIlugc) Run() error {
 			QrCode: nil,
 		}
 
-		chksum, err := self.Db.Chksum(participant)
+		chksum, err := self.Db.ParticipantChksum(participant)
 		if err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
@@ -193,7 +258,7 @@ func (self *RegisterIlugc) Run() error {
 			return
 		}
 		participant.QrCode = qrbuffer.Bytes()
-		if err := self.Db.Write(participant); err != nil {
+		if err := self.Db.ParticipantWrite(participant); err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
@@ -234,7 +299,7 @@ func (self *RegisterIlugc) Run() error {
 
 	http.HandleFunc("/participant/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
 		chksum := request.PathValue("chksum")
-		participant, err := self.Db.Read(chksum)
+		participant, err := self.Db.ParticipantRead(chksum)
 		if err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
@@ -259,7 +324,7 @@ func (self *RegisterIlugc) Run() error {
 
 	http.HandleFunc("/delete/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
 		chksum := request.PathValue("chksum")
-		err := self.Db.Delete(chksum)
+		err := self.Db.ParticipantDelete(chksum)
 		if err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
@@ -276,7 +341,7 @@ func (self *RegisterIlugc) Run() error {
 
 	http.HandleFunc("/qr/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
 		chksum := request.PathValue("chksum")
-		participant, err := self.Db.Read(chksum)
+		participant, err := self.Db.ParticipantRead(chksum)
 		if err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
@@ -315,13 +380,18 @@ func (self *RegisterIlugc) Run() error {
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err = self.CheckAuth(body); err != nil {
+		if err := self.CheckAuth(request); err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
 		
 		StructSetFromMap(self.Config, body)
+		if err := self.Config.WriteConfigDetails(); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
 		response.Write([]byte("Config Updated"))
 	})
 
@@ -339,7 +409,7 @@ func (self *RegisterIlugc) Run() error {
 				}
 				return
 			}
-			timestr, ok := self.AuthToken[hashdata]
+			authtoken, ok := self.AuthToken[hashdata]
 			if ok == false {
 				err := errors.New("No Auth Token")
 				G.logger.Println(err)
@@ -348,21 +418,14 @@ func (self *RegisterIlugc) Run() error {
 			}
 			delete(self.AuthToken, hashdata)
 
-			reqtime, err := time.Parse(time.RFC3339Nano, timestr)
-			if err != nil {
-				G.logger.Println(err)
-				http.Error(response, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			if time.Now().UTC().Sub(reqtime).Seconds() > 30 {
+			if time.Now().UTC().Sub(authtoken.Now).Seconds() > 30 {
 				err := errors.New("Invalid Auth Token")
 				G.logger.Println(err)
 				http.Error(response, err.Error(), http.StatusBadRequest)
 				return
 			}
 
-			data, err := self.Db.Csv()
+			data, err := self.Db.ParticipantCsv()
 			if err != nil {
 				G.logger.Println(err)
 				http.Error(response, err.Error(), http.StatusBadRequest)
@@ -386,15 +449,18 @@ func (self *RegisterIlugc) Run() error {
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err = self.CheckAuth(body); err != nil {
+		if err = self.CheckAuth(request); err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		nowstring := time.Now().UTC().Format(time.RFC3339Nano)
-		hash := base64.URLEncoding.EncodeToString([]byte(nowstring))
-		self.AuthToken[hash] = nowstring
+		hash, err := self.GenAuthToken()
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
 		type CsvResp struct {
 			Hash string `json:"hash"`
 		}

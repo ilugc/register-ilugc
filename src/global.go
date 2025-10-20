@@ -23,30 +23,36 @@ type Participant struct {
 	QrCode []byte `json:"qrcode"`
 }
 
+type ConfigDetails struct {
+	Domain string `json:"domain"`
+	Hostport string `json:"hostport"`
+	Static string `json:"static"`
+	DefaultMax int64 `json:"defaultmax"`
+	StopRegistration bool `json:"stopregistration"`
+	AdminUsername string `json:"adminusername"`
+	AdminPasswordHash []byte `json:"adminpasswordhash"`
+}
+
 func StructToMap(v any) map[string]string {
 	vmap := make(map[string]string)
-	valueof := reflect.ValueOf(v)
-	if valueof.Kind() == reflect.Ptr {
-		valueof = valueof.Elem()
-	}
+	valueof := reflect.Indirect(reflect.ValueOf(v))
 	typeof := valueof.Type()
-	for index := 0; index < valueof.NumField(); index++ {
-		typef := typeof.Field(index)
-		valuef := valueof.Field(index)
+	for _, visiblefield := range reflect.VisibleFields(typeof) {
+		valuef := valueof.FieldByIndex(visiblefield.Index)
 		switch valuef.Kind() {
-		case reflect.Int64: vmap[typef.Name] = strconv.FormatInt(valuef.Int(), 10)
-		case reflect.Uint64: vmap[typef.Name] = strconv.FormatUint(valuef.Uint(), 10)
-		case reflect.Bool: vmap[typef.Name] = strconv.FormatBool(valuef.Bool())
-		case reflect.String: vmap[typef.Name] = valuef.String()
+		case reflect.Int64: vmap[visiblefield.Name] = strconv.FormatInt(valuef.Int(), 10)
+		case reflect.Uint64: vmap[visiblefield.Name] = strconv.FormatUint(valuef.Uint(), 10)
+		case reflect.Bool: vmap[visiblefield.Name] = strconv.FormatBool(valuef.Bool())
+		case reflect.String: vmap[visiblefield.Name] = valuef.String()
 		}
 	}
 	return vmap
 }
 
 func StructSetFromMap(v any, m map[string]any) {
-	valueof := reflect.ValueOf(v)
+	valueof := reflect.Indirect(reflect.ValueOf(v))
 	for k0, v0 := range m {
-		valuef := reflect.Indirect(valueof).FieldByName(k0)
+		valuef := valueof.FieldByName(k0)
 		if valuef.IsValid() == false {
 			G.logger.Println("Invalid value for key ", k0)
 			continue
