@@ -59,45 +59,107 @@ func (self *RegisterIlugc) Run() error {
 <html>
   <head>
     <style>
-      body,canvas {
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f4f4f9;
+        margin: 0;
+        padding: 0;
       }
+
+      header {
+        background-color: black;
+        color: white;
+        text-align: center;
+        padding: 20px;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 28px;
+      }
+
+      header h2 {
+        color: red;
+        margin-top: 5px;
+        font-size: 18px;
+      }
+
       #registerform {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: calc(100vh - 120px);
       }
+
       #fieldsdiv {
-          display: grid;
-          grid-template-columns: 1fr 2fr;
+        background: white;
+        padding: 30px 40px;
+        border-radius: 10px;
+        box-shadow: 0px 4px 8px rgba(0,0,0,0.15);
+        display: grid;
+        gap: 10px;
+        grid-template-columns: 1fr 2fr;
       }
-      #submit, #status, #title {
-          grid-column: 1 / -1;
+
+      #fieldsdiv label {
+        font-weight: 600;
       }
-      #title, #status {
-	  text-align: center;
+
+      #fieldsdiv input[type="text"], 
+      #fieldsdiv input[type="email"],
+      #fieldsdiv input[type="button"] {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 14px;
+      }
+
+      #fieldsdiv input[type="button"] {
+        background-color: #0078d7;
+        color: white;
+        border: none;
+        cursor: pointer;
+        grid-column: 1 / -1;
+        transition: background-color 0.2s ease;
+      }
+
+      #fieldsdiv input[type="button"]:hover {
+        background-color: #005ea3;
+      }
+
+      #status {
+        grid-column: 1 / -1;
+        text-align: center;
+        color: green;
+        font-weight: bold;
+        margin-top: 10px;
+      }
+
+      @media (max-width: 600px) {
+        #fieldsdiv {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
   <body>
+    <header>
+      <h1>India Linux User's Group - Chennai(Madras)</h1>
+      <h2>Monthly Meet Register Form</h2>
+    </header>
     <div id="registerform">
       <div id="fieldsdiv">
-        <label id="title">ILUGC Monthly Meet Register Form</label>
         <label>Name</label>
-        <input id="participant_name" />
+        <input id="participant_name" type="text" />
         <label>Email</label>
-        <input id="participant_email" />
+        <input id="participant_email" type="email" />
         <label>Mobile</label>
-        <input id="participant_mobile" />
-	<label>College/Company Name</label>
-	<input id="participant_org" type="text" />
-	<label>Place</label>
-	<input id="participant_place" type="text", placeholder="eg: Velachery" />
-        <input id="submit" type="button" value="submit" />
+        <input id="participant_mobile" type="text" />
+        <label>College/Company</label>
+        <input id="participant_org" type="text" />
+        <label>Place</label>
+        <input id="participant_place" type="text" placeholder="e.g. Velachery" />
+        <input id="submit" type="button" value="Submit" />
         <label id="status"></label>
       </div>
     </div>
@@ -105,6 +167,7 @@ func (self *RegisterIlugc) Run() error {
   </body>
 </html>
 `
+
 		response.Write([]byte(html))
 	})
 
