@@ -87,21 +87,33 @@ func (self *Register) Close() {
 	}
 }
 
-func (self *Register) IsClosed() (bool, error) {
+type ClosedReason int
+const (
+	Open ClosedReason = iota
+	Closed
+	MaxReached
+)
+var ClosedReasonStrings = map[ClosedReason]string{
+	Open: "Open",
+	Closed: "Registration Closed",
+	MaxReached: "Maximum participants reached. Wait for someone to unregister",
+}
+
+func (self *Register) IsClosed() (ClosedReason, error) {
 	if self.Config.StopRegistration == true {
-		return true, nil
+		return Closed, nil
 	}
 
 	count, err := self.Db.ParticipantCount()
 	if err != nil {
 		G.logger.Println(err)
-		return false, err
+		return Closed, err
 	}
 	if self.Config.DefaultMax > 0 &&
 		count >= self.Config.DefaultMax {
-		return true, nil
+		return MaxReached, nil
 	}
-	return false, nil
+	return Open, nil
 }
 
 func (self *Register) CheckAuth(request *http.Request) error {
@@ -210,14 +222,14 @@ func (self *Register) Run() error {
 			return
 		}
 
-		isclosed, err := self.IsClosed()
+		closedreason, err := self.IsClosed()
 		if err != nil  {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if isclosed {
-			err := errors.New("Registration Closed")
+		if closedreason != Open {
+			err := errors.New(ClosedReasonStrings[closedreason])
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
@@ -278,7 +290,7 @@ func (self *Register) Run() error {
 	})
 
 	http.HandleFunc("/isclosed/", func(response http.ResponseWriter, request *http.Request) {
-		isclosed, err := self.IsClosed()
+		closedreason, err := self.IsClosed()
 		if err != nil  {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
@@ -286,9 +298,10 @@ func (self *Register) Run() error {
 		}
 
 		type IsClosedResp struct {
-			IsClosed bool `json:"isclosed"`
+			ClosedReason ClosedReason `json:"closedreason"`
+			ClosedReasonString string `json:"closedreasonstring"`
 		}
-		body, err := json.Marshal(&IsClosedResp{IsClosed: isclosed})
+		body, err := json.Marshal(&IsClosedResp{ClosedReason: closedreason, ClosedReasonString: ClosedReasonStrings[closedreason]})
 		if err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
