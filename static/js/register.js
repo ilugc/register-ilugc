@@ -21,9 +21,9 @@ fetch("/isclosed/", {
     showMessage(err.toString());
 }).then((body) => {
     resp = JSON.parse(body);
-    if (resp.isclosed === true) {
+    if (resp.closedreason !== 0) {
 	global.gdiv.style.display = "none";
-	showMessage("Registration Closed");
+	showMessage(resp.closedreasonstring);
     }
 });
 

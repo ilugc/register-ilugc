@@ -12,6 +12,7 @@
 	<label>{{- $value -}}</label>
 	{{ end }}
 	<a id="qrlink" href="{{- .QrCodeUrl -}}" target="_blank"><img id="qr" src="{{- .QrCodeUrl -}}" /></a>
+	<label id="info">Unregister if your plan changes before registration closing time</label>
 	<input id="print" class="hide-on-print" type="button" value="Print" onclick="print()" />
 	<a id="delete" class="hide-on-print" href="{{- .UnregisterUrl -}}">Unregister</a>
 	<a id="home" class="hide-on-print" href="/">Home</a>
