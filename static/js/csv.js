@@ -1,7 +1,8 @@
 let global = {
     download: document.getElementById("download"),
     status: document.getElementById("status"),
-    gdiv: document.getElementById("gdiv")
+    gdiv: document.getElementById("gdiv"),
+    fromtime: document.getElementById("fromtime")
 }
 
 let redirectLink = function(hash) {
@@ -14,24 +15,8 @@ let showMessage = function(message) {
 }
 
 global.download.addEventListener("click", (event) => {
-    body = {}
-    formelements = document.getElementsByClassName("form");
-    for (el of formelements) {
-	if (el.value.length <= 0) {
-	    continue
-	}
-
-	switch (el.id) {
-	case "AdminPassword": {
-	    body.AdminPassword = btoa(el.value);
-	    break;
-	}
-	default: {
-	    body[el.id] = el.value;
-	}
-	}
-    }
-
+    fromtime = global.fromtime.value
+    body = {fromtime: fromtime}
     fetch("/csv/", {
 	method: "POST",
 	headers: {
