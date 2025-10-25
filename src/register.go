@@ -24,6 +24,7 @@ import (
 type AuthToken struct {
 	Now time.Time
 	Rand string
+	FromTime string
 }
 
 type Register struct {
@@ -187,8 +188,8 @@ func (self *Register) CheckAuth(request *http.Request) error {
 	return nil
 }
 
-func (self *Register) GenAuthToken() (string, error) {
-	authtoken := &AuthToken{Now: time.Now().UTC(), Rand: rand.Text()}
+func (self *Register) GenAuthToken(fromtime string) (string, error) {
+	authtoken := &AuthToken{Now: time.Now().UTC(), Rand: rand.Text(), FromTime: fromtime}
 	buffer := bytes.NewBuffer(nil)
 	encoder := gob.NewEncoder(buffer)
 	if err := encoder.Encode(authtoken); err != nil {
@@ -416,7 +417,7 @@ func (self *Register) Run() error {
 				tmpl := template.Must(template.ParseFiles(self.Config.Static + "/csv.tmpl",
 					self.Config.Static + "/admin.tmpl",
 					self.Config.Static + "/sourcecode.tmpl"))
-				if err := tmpl.Execute(response, nil); err != nil {
+				if err := tmpl.Execute(response, time.Now().UTC().Format(time.RFC3339)); err != nil {
 					G.logger.Println(err)
 					http.Error(response, err.Error(), http.StatusBadRequest)
 				}
@@ -438,7 +439,7 @@ func (self *Register) Run() error {
 				return
 			}
 
-			data, err := self.Db.ParticipantCsv()
+			data, err := self.Db.ParticipantCsv(authtoken.FromTime)
 			if err != nil {
 				G.logger.Println(err)
 				http.Error(response, err.Error(), http.StatusBadRequest)
@@ -447,6 +448,12 @@ func (self *Register) Run() error {
 			response.Header().Set("Content-Type", "text/csv")
 			response.Header().Set("Content-Disposition", "attachment; filename=\"participants.csv\"")
 			response.Write(data)
+			return
+		}
+
+		if err := self.CheckAuth(request); err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -462,13 +469,12 @@ func (self *Register) Run() error {
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err = self.CheckAuth(request); err != nil {
-			G.logger.Println(err)
-			http.Error(response, err.Error(), http.StatusBadRequest)
-			return
+		fromtime := ""
+		if fromtimestr, exists := body["fromtime"].(string); exists != false {
+			fromtime = fromtimestr
 		}
 
-		hash, err := self.GenAuthToken()
+		hash, err := self.GenAuthToken(fromtime)
 		if err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)

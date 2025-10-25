@@ -6,8 +6,10 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"hash/fnv"
 	"sort"
+	"time"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
@@ -77,12 +79,23 @@ func (self *Db) ParticipantWrite(participant *Participant) error {
 	}
 
 	ctx := context.Background()
-	count, err := gorm.G[MParticipant](self.Db).Where("chksum = ?", chksum).Count(ctx, "")
+	records := gorm.G[MParticipant](self.Db).Where("chksum = ?", chksum)
+	count, err := records.Count(ctx, "")
 	if err != nil {
 		G.logger.Println(err)
 		return err
 	}
 	if count > 0 {
+		affectedrows, err := records.Updates(ctx, MParticipant{Chksum: chksum, Participant: *participant})
+		if err != nil {
+			G.logger.Println(err)
+			return err
+		}
+		if int(count) != affectedrows {
+			err := errors.New(fmt.Sprint("count(", count, ") is not equal to affected rows(", affectedrows, ")"))
+			G.logger.Println(err)
+			return err
+		}
 		return nil
 	}
 
@@ -135,7 +148,17 @@ func (self *Db) ParticipantCount() (int64, error) {
 	return count, nil
 }
 
-func (self *Db) ParticipantCsv() ([]byte, error) {
+func (self *Db) ParticipantCsv(fromtime string) ([]byte, error) {
+	var ftime time.Time
+	if len(fromtime) > 0 {
+		ftimetmp, err := time.Parse(time.RFC3339, fromtime)
+		if err != nil {
+			G.logger.Println(err)
+			return nil, err
+		}
+		ftime = ftimetmp
+	}
+
 	ctx := context.Background()
 	mparticipants, err := gorm.G[MParticipant](self.Db).Find(ctx)
 	if err != nil {
@@ -148,6 +171,17 @@ func (self *Db) ParticipantCsv() ([]byte, error) {
 	headers := []string{}
 	for _, mparticipant := range mparticipants {
 		participant := &mparticipant.Participant
+		if ftime.IsZero() == false {
+			registeredtime, err := time.Parse(time.RFC3339, participant.RegisteredTime)
+			if err != nil {
+				G.logger.Println(err)
+				return nil, err
+			}
+			if ftime.Compare(registeredtime) > 0 {
+				G.logger.Println("chksum(", mparticipant.Chksum, ") registeredtime(", registeredtime, ") is older then ftime(", ftime, ")")
+				continue
+			}
+		}
 		participantmap := StructToMap(participant)
 		if len(headers) <= 0 {
 			for header, _ := range participantmap {
