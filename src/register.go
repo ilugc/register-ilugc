@@ -323,10 +323,14 @@ func (self *Register) Run() error {
 		
 		type ParticipantResp struct {
 			ParticipantMap map[string]string
-			UnregisterUrl string
+			ParticipantUrl string
 			QrCodeUrl string
+			UnregisterUrl string
 		}
-		participantresp := &ParticipantResp{ParticipantMap: participantmap, UnregisterUrl: "/delete/" + chksum, QrCodeUrl: "/qr/" + chksum}
+		participantresp := &ParticipantResp{ParticipantMap: participantmap,
+			ParticipantUrl: "/participant/" + chksum,
+			QrCodeUrl: "/qr/" + chksum,
+			UnregisterUrl: "/delete/" + chksum}
 		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/participant.tmpl",
 			self.Config.Static + "/sourcecode.tmpl"))
 		if err := tmpl.Execute(response, participantresp); err != nil {
