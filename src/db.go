@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/glebarez/sqlite"
@@ -169,7 +170,7 @@ func (self *Db) ParticipantCsv(fromtime string) ([]byte, error) {
 	csvbuffer := bytes.NewBuffer(nil)
 	csvwriter := csv.NewWriter(csvbuffer)
 	headers := []string{}
-	for _, mparticipant := range mparticipants {
+	for index, mparticipant := range mparticipants {
 		participant := &mparticipant.Participant
 		if ftime.IsZero() == false {
 			registeredtime, err := time.Parse(time.RFC3339, participant.RegisteredTime)
@@ -188,9 +189,10 @@ func (self *Db) ParticipantCsv(fromtime string) ([]byte, error) {
 				headers = append(headers, header)
 			}
 			sort.Strings(headers)
-			csvwriter.Write(headers)
+			csvheaders := append(append([]string{}, "S.No"), headers...)
+			csvwriter.Write(csvheaders)
 		}
-		values := []string{}
+		values := []string{strconv.FormatUint(uint64(index + 1), 10)}
 		for _, header := range headers {
 			values = append(values, participantmap[header])
 		}
