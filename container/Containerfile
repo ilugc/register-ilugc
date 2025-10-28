@@ -1,10 +1,9 @@
 FROM docker.io/golang:latest as builder
+RUN --mount=type=bind,source=/,target=/register-ilugc,rw sh -c 'cd /register-ilugc && make && tar cvzf register-ilugc.tar.gz src/cmd/register static && make clean && touch /.completed'
 
-RUN --mount=type=bind,source=/,target=/register-ilugc,rw sh -c 'cd /register-ilugc && make' && tar cvf /register-ilugc.tar /register-ilugc/src/cmd/register /register-ilugc/static
-
-FROM docker.io/alpine:latest
-COPY --from=builder /register-ilugc.tar /register-ilugc.tar
-RUN tar xvf /register-ilugc.tar -C /
+FROM scratch
+COPY --from=builder /.completed /.completed
+ADD register-ilugc.tar.gz /register-ilugc
 VOLUME ["/data"]
 EXPOSE 2203
 WORKDIR /data
