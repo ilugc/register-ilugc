@@ -2,7 +2,7 @@ FROM docker.io/golang:latest as builder
 RUN --mount=type=bind,source=/,target=/register-ilugc-src,rw sh -c 'cd /register-ilugc-src && make && mkdir -p /register-ilugc/src/cmd && cp src/cmd/register /register-ilugc/src/cmd/register && cp -r static /register-ilugc/'
 
 FROM scratch
-COPY --from=builder /register-ilugc /
+COPY --from=builder /register-ilugc /register-ilugc
 VOLUME ["/data"]
 EXPOSE 2203
 WORKDIR /data
