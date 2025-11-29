@@ -208,7 +208,18 @@ func (self *Register) Run() error {
 	http.HandleFunc("/{$}", func(response http.ResponseWriter, request *http.Request) {
 		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/index.tmpl",
 			self.Config.Static + "/sourcecode.tmpl"))
-		if err := tmpl.Execute(response, nil); err != nil {
+		type IndexResp struct {
+			IsClosed bool
+			ClosedReasonString string
+		}
+		closedreason, err := self.IsClosed()
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		indexresp := &IndexResp{IsClosed: closedreason != Open, ClosedReasonString: ClosedReasonStrings[closedreason]}
+		if err := tmpl.Execute(response, indexresp); err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
@@ -288,27 +299,6 @@ func (self *Register) Run() error {
 		}
 
 		response.Write(respbody)
-	})
-
-	http.HandleFunc("/isclosed/", func(response http.ResponseWriter, request *http.Request) {
-		closedreason, err := self.IsClosed()
-		if err != nil  {
-			G.logger.Println(err)
-			http.Error(response, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		type IsClosedResp struct {
-			ClosedReason ClosedReason `json:"closedreason"`
-			ClosedReasonString string `json:"closedreasonstring"`
-		}
-		body, err := json.Marshal(&IsClosedResp{ClosedReason: closedreason, ClosedReasonString: ClosedReasonStrings[closedreason]})
-		if err != nil {
-			G.logger.Println(err)
-			http.Error(response, err.Error(), http.StatusBadRequest)
-			return
-		}
-		response.Write(body)
 	})
 
 	http.HandleFunc("/participant/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
