@@ -23,9 +23,6 @@ func CreateConfig(filename string) *Config {
 	}
 	self.Domain = "https://register.ilugc.in"
 	self.Hostport = ":2203"
-	self.Static = ""
-	self.DefaultMax = 0
-	self.StopRegistration = false
 	self.Db = CreateDb()
 	return self
 }

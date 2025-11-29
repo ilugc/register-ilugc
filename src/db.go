@@ -10,7 +10,6 @@ import (
 	"hash/fnv"
 	"sort"
 	"strconv"
-	"time"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
@@ -107,7 +106,7 @@ func (self *Db) ParticipantWrite(participant *Participant) error {
 	return nil
 }
 
-func (self *Db) ParticipantRead(chksum string) (*Participant, error) {
+func (self *Db) ParticipantRead(chksum string, openedtime int64) (*Participant, error) {
 	if len(chksum) <= 0 {
 		err := errors.New("Empty chksum")
 		G.logger.Println(err)
@@ -115,7 +114,7 @@ func (self *Db) ParticipantRead(chksum string) (*Participant, error) {
 	}
 
 	ctx := context.Background()
-	mparticipant, err := gorm.G[MParticipant](self.Db).Where("chksum = ?", chksum).First(ctx)
+	mparticipant, err := gorm.G[MParticipant](self.Db).Where("chksum = ? and registered_time_micro >= ?", chksum, openedtime).First(ctx)
 	if err != nil {
 		G.logger.Println(err)
 		return nil, err
@@ -139,9 +138,9 @@ func (self *Db) ParticipantDelete(chksum string) error {
 	return nil
 }
 
-func (self *Db) ParticipantCount() (int64, error) {
+func (self *Db) ParticipantCount(openedtime int64) (int64, error) {
 	ctx := context.Background()
-	count, err := gorm.G[MParticipant](self.Db).Count(ctx, "")
+	count, err := gorm.G[MParticipant](self.Db).Where("registered_time_micro >= ?", openedtime).Count(ctx, "")
 	if err != nil {
 		G.logger.Println(err)
 		return 0, err
@@ -149,19 +148,9 @@ func (self *Db) ParticipantCount() (int64, error) {
 	return count, nil
 }
 
-func (self *Db) ParticipantCsv(fromtime string) ([]byte, error) {
-	var ftime time.Time
-	if len(fromtime) > 0 {
-		ftimetmp, err := time.Parse(time.RFC3339, fromtime)
-		if err != nil {
-			G.logger.Println(err)
-			return nil, err
-		}
-		ftime = ftimetmp
-	}
-
+func (self *Db) ParticipantCsv(fromtime int64, ignorelist []string) ([]byte, error) {
 	ctx := context.Background()
-	mparticipants, err := gorm.G[MParticipant](self.Db).Find(ctx)
+	mparticipants, err := gorm.G[MParticipant](self.Db).Where("registered_time_micro >= ?", fromtime).Find(ctx)
 	if err != nil {
 		G.logger.Println(err)
 		return nil, err
@@ -172,18 +161,7 @@ func (self *Db) ParticipantCsv(fromtime string) ([]byte, error) {
 	headers := []string{}
 	for index, mparticipant := range mparticipants {
 		participant := &mparticipant.Participant
-		if ftime.IsZero() == false {
-			registeredtime, err := time.Parse(time.RFC3339, participant.RegisteredTime)
-			if err != nil {
-				G.logger.Println(err)
-				return nil, err
-			}
-			if ftime.Compare(registeredtime) > 0 {
-				G.logger.Println("chksum(", mparticipant.Chksum, ") registeredtime(", registeredtime, ") is older then ftime(", ftime, ")")
-				continue
-			}
-		}
-		participantmap := StructToMap(participant)
+		participantmap := StructToMap(participant, ignorelist)
 		if len(headers) <= 0 {
 			for header, _ := range participantmap {
 				headers = append(headers, header)
