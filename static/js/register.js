@@ -13,20 +13,6 @@ let showMessage = function(message) {
     global.status.innerText = message;
 }
 
-fetch("/isclosed/", {
-    method: "GET",
-}).then((response) => {
-    return response.text()
-}, (err) => {
-    showMessage(err.toString());
-}).then((body) => {
-    resp = JSON.parse(body);
-    if (resp.closedreason !== 0) {
-	global.gdiv.style.display = "none";
-	showMessage(resp.closedreasonstring);
-    }
-});
-
 global.register.addEventListener("focusout", (event) => {
     global.status.innerText = "";
 });

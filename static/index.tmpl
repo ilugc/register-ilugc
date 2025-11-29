@@ -5,6 +5,9 @@
   </head>
   <body>
     <div id="fdiv">
+      {{if .IsClosed}}
+      <label id="status">{{.ClosedReasonString}}</label>
+      {{else}}
       <div id="gdiv">
 	<label id="title">ILUGC Monthly Meet Register Form</label>
 	<label>Name</label>
@@ -19,7 +22,8 @@
 	<input id="participant_place" type="text", placeholder="eg: Velachery" />
 	<input id="register" type="button" value="Register" />
       </div>
-	<label id="status"></label>
+      <label id="status"></label>
+      {{end}}
     </div>
     <script src="/js/register.js"></script>
     {{template "sourcecode.tmpl"}}

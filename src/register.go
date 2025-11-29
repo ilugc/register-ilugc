@@ -105,7 +105,7 @@ func (self *Register) IsClosed() (ClosedReason, error) {
 		return Closed, nil
 	}
 
-	count, err := self.Db.ParticipantCount()
+	count, err := self.Db.ParticipantCount(self.Config.OpenedTimeMicro)
 	if err != nil {
 		G.logger.Println(err)
 		return Closed, err
@@ -208,7 +208,18 @@ func (self *Register) Run() error {
 	http.HandleFunc("/{$}", func(response http.ResponseWriter, request *http.Request) {
 		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/index.tmpl",
 			self.Config.Static + "/sourcecode.tmpl"))
-		if err := tmpl.Execute(response, nil); err != nil {
+		type IndexResp struct {
+			IsClosed bool
+			ClosedReasonString string
+		}
+		closedreason, err := self.IsClosed()
+		if err != nil {
+			G.logger.Println(err)
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		indexresp := &IndexResp{IsClosed: closedreason != Open, ClosedReasonString: ClosedReasonStrings[closedreason]}
+		if err := tmpl.Execute(response, indexresp); err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
@@ -248,8 +259,11 @@ func (self *Register) Run() error {
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
+
+		now := time.Now().UTC()
 		participant := &Participant{
-			RegisteredTime: time.Now().UTC().Format(time.RFC3339),
+			RegisteredTimeMicro: now.UnixMicro(),
+			RegisteredTime: now.Format(time.RFC3339),
 			Name: body["name"].(string),
 			Email: body["email"].(string),
 			Mobile: body["mobile"].(string),
@@ -290,37 +304,16 @@ func (self *Register) Run() error {
 		response.Write(respbody)
 	})
 
-	http.HandleFunc("/isclosed/", func(response http.ResponseWriter, request *http.Request) {
-		closedreason, err := self.IsClosed()
-		if err != nil  {
-			G.logger.Println(err)
-			http.Error(response, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		type IsClosedResp struct {
-			ClosedReason ClosedReason `json:"closedreason"`
-			ClosedReasonString string `json:"closedreasonstring"`
-		}
-		body, err := json.Marshal(&IsClosedResp{ClosedReason: closedreason, ClosedReasonString: ClosedReasonStrings[closedreason]})
-		if err != nil {
-			G.logger.Println(err)
-			http.Error(response, err.Error(), http.StatusBadRequest)
-			return
-		}
-		response.Write(body)
-	})
-
 	http.HandleFunc("/participant/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
 		chksum := request.PathValue("chksum")
-		participant, err := self.Db.ParticipantRead(chksum)
+		participant, err := self.Db.ParticipantRead(chksum, self.Config.OpenedTimeMicro)
 		if err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
-		participantmap := StructToMap(participant)
-		
+
+		participantmap := StructToMap(participant, []string{"RegisteredTimeMicro"})
 		type ParticipantResp struct {
 			ParticipantMap map[string]string
 			ParticipantUrl string
@@ -359,7 +352,7 @@ func (self *Register) Run() error {
 
 	http.HandleFunc("/qr/{chksum}/", func(response http.ResponseWriter, request *http.Request) {
 		chksum := request.PathValue("chksum")
-		participant, err := self.Db.ParticipantRead(chksum)
+		participant, err := self.Db.ParticipantRead(chksum, self.Config.OpenedTimeMicro)
 		if err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
@@ -371,11 +364,11 @@ func (self *Register) Run() error {
 
 	http.HandleFunc("/config/", func(response http.ResponseWriter, request *http.Request) {
 		if request.Method != "POST" {
-			configmap := StructToMap(self.Config)
-			for _, k := range []string{"Filename", "Hostport", "Static", "AdminUsername", "AdminPassword"} {
-				delete(configmap, k)
+			config := *(self.Config)
+			if len(config.OpenedTime) <= 0 {
+				config.OpenedTime = time.Now().UTC().Format(time.RFC3339) + " (current time)"
 			}
-
+			configmap := StructToMap(config, []string{"Filename", "Hostport", "Static", "OpenedTimeMicro", "AdminUsername", "AdminPassword"})
 			tmpl := template.Must(template.ParseFiles(self.Config.Static + "/config.tmpl",
 				self.Config.Static + "/admin.tmpl",
 				self.Config.Static + "/sourcecode.tmpl"))
@@ -404,7 +397,22 @@ func (self *Register) Run() error {
 			return
 		}
 		
-		StructSetFromMap(self.Config, body)
+		StructSetFromMap(self.Config, body, []string{})
+		if len(self.Config.OpenedTime) > 0 {
+			if self.Config.OpenedTime == "reset" {
+				self.Config.OpenedTime = ""
+				self.Config.OpenedTimeMicro = 0
+			} else {
+				openedtime, err := time.Parse(time.RFC3339, self.Config.OpenedTime)
+				if err != nil {
+					G.logger.Println(err)
+					http.Error(response, err.Error(), http.StatusBadRequest)
+					return
+				}
+				self.Config.OpenedTimeMicro = openedtime.UnixMicro()
+			}
+		}
+
 		if err := self.Config.WriteConfigDetails(); err != nil {
 			G.logger.Println(err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
@@ -443,7 +451,18 @@ func (self *Register) Run() error {
 				return
 			}
 
-			data, err := self.Db.ParticipantCsv(authtoken.FromTime)
+			var fromtimemicro int64
+			if len(authtoken.FromTime) > 0 {
+				fromtime, err := time.Parse(time.RFC3339, authtoken.FromTime)
+				if err != nil {
+					G.logger.Println(err)
+					http.Error(response, err.Error(), http.StatusBadRequest)
+					return
+				}
+				fromtimemicro = fromtime.UnixMicro();
+			}
+
+			data, err := self.Db.ParticipantCsv(fromtimemicro, []string{"RegisteredTimeMicro"})
 			if err != nil {
 				G.logger.Println(err)
 				http.Error(response, err.Error(), http.StatusBadRequest)
