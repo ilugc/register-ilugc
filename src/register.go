@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -369,6 +370,12 @@ func (self *Register) Run() error {
 				config.OpenedTime = time.Now().UTC().Format(time.RFC3339) + " (current time)"
 			}
 			configmap := StructToMap(config, []string{"Filename", "Hostport", "Static", "OpenedTimeMicro", "AdminUsername", "AdminPassword"})
+			count, err := self.Db.ParticipantCount(self.Config.OpenedTimeMicro)
+			if err != nil {
+				G.logger.Println(err)
+				return
+			}
+			configmap["DefaultMax"] += " (" + strconv.FormatInt(count, 10) + ")"
 			tmpl := template.Must(template.ParseFiles(self.Config.Static + "/config.tmpl",
 				self.Config.Static + "/admin.tmpl",
 				self.Config.Static + "/sourcecode.tmpl"))
