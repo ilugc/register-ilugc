@@ -368,6 +368,9 @@ func (self *Register) Run() error {
 			config := *(self.Config)
 			if len(config.OpenedTime) <= 0 {
 				config.OpenedTime = time.Now().UTC().Format(time.RFC3339) + " (current time)"
+				if config.OpenedTimeMicro > 0 {
+					config.OpenedTime = time.UnixMicro(config.OpenedTimeMicro).Format(time.RFC3339)
+				}
 			}
 			configmap := StructToMap(config, []string{"Filename", "Hostport", "Static", "OpenedTimeMicro", "AdminUsername", "AdminPassword"})
 			count, err := self.Db.ParticipantCount(self.Config.OpenedTimeMicro)
@@ -409,6 +412,10 @@ func (self *Register) Run() error {
 			if self.Config.OpenedTime == "reset" {
 				self.Config.OpenedTime = ""
 				self.Config.OpenedTimeMicro = 0
+				lastregisteredtime, _ := self.Db.LastRegisteredTime()
+				if lastregisteredtime > 0 {
+					self.Config.OpenedTimeMicro = lastregisteredtime + 1
+				}
 			} else {
 				openedtime, err := time.Parse(time.RFC3339, self.Config.OpenedTime)
 				if err != nil {
