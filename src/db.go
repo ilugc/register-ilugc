@@ -148,6 +148,16 @@ func (self *Db) ParticipantCount(openedtime int64) (int64, error) {
 	return count, nil
 }
 
+func (self *Db) LastRegisteredTime() (int64, error) {
+	ctx := context.Background()
+	row, err := gorm.G[MParticipant](self.Db).Order("registered_time_micro desc").First(ctx)
+	if err != nil {
+		G.logger.Println(err)
+		return 0, err
+	}
+	return row.RegisteredTimeMicro, nil
+}
+
 func (self *Db) ParticipantCsv(fromtime int64, ignorelist []string) ([]byte, error) {
 	ctx := context.Background()
 	mparticipants, err := gorm.G[MParticipant](self.Db).Where("registered_time_micro >= ?", fromtime).Find(ctx)
