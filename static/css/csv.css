@@ -1,9 +1,10 @@
 #gdiv {
-    grid-template-columns: 1fr 2fr;
+	width: 450px;
+	max-width: 95%;
 }
 
-#download, #status {
-    grid-column: 1 / -1;
+#download{
+	margin-top: 32px;
 }
 
 #status {

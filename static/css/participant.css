@@ -7,12 +7,48 @@
     text-align: center;
 }
 
-#qr {
-    aspect-ratio: 1 / 1;
+/*table {
+	align-self: center;
+	border-collapse:collapse ;
+	width: 100%;
+}
+#table-container {
+	overflow-x: auto;
+}
+td {
+	padding: 8px 24px;
+	border-bottom: 1px dashed var(--text) !important;
 }
 
+tr:last-of-type>td {
+	border-bottom: none !important;
+}*/
+
+#qr {
+    aspect-ratio: 1 / 1;
+    margin-top: 12px;
+}
+
+#links {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-around;
+	margin-top: 16px;
+}
+#home, #delete {
+	width: fit-content;
+}
+#delete {
+	color: red;
+}
 @media print {
     .hide-on-print {
-	display: none !important;
+    	display: none !important;
+    }
+    td {
+    	border-bottom: 1px dashed black !important;
+    }
+    tr:last-of-type>td {
+    	border-bottom: none !important;
     }
 }

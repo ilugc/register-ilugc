@@ -1,7 +1,52 @@
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #050505;
+    --background: #ffffff;
+    --primary: #000000;
+  }
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --text: #fafafa;
+    --background: #000000;
+    --primary: #ffffff;
+  }
+}
+
+* {
+	font-family: "Courier Prime";
+}
+
+#gdiv {
+	width: 450px;
+	max-width: 95%;
+	display: flex;
+	flex-direction: column;
+}
+
+h2 {
+	font-size: 1.5rem;
+}
+
 body {
     width: auto;
     height: auto;
     overflow: auto;
+    background-color: var(--background);
+    color: var(--text);
+}
+
+button, input[type="button"], input[type="submit"] {
+	border: none !important;
+	background: var(--text) !important;
+	color: var(--background) !important;
+	padding: 6px !important;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	font-weight: bold;
+	font-size: 1rem;
+	
+	
 }
 #fdiv {
     display: flex;
@@ -10,14 +55,37 @@ body {
     align-items: center;
     height: 100%;
 }
-#gdiv {
-    display: grid;
+#title {
+	text-align: center;
+}
+#gdiv > input {
+	background-color: var(--background);
+	border: 1px solid var(--text);
+	color: var(--text);
+	padding: 8px;
+	font-size: 1rem;
 }
 
-#gdiv > * {
-    border: 1px solid black;
-    margin: 1px;
-    padding: 1px;
+#gdiv > label {
+	color: var(--text);
+	font-size: 0.8rem;
+	position: relative;
+	top: 10px;
+	left: 8px;
+	width: fit-content;
+	background: var(--background);
+	text-transform: uppercase;
+	font-weight: bold;
+	padding: 2px;
+	letter-spacing: 1px;
+}
+
+#gdiv > input:focus {
+	outline: 1px solid var(--text);
+}
+
+#register{
+	margin-top: 32px;
 }
 
 #sourcecode {
