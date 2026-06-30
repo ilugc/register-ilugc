@@ -1,27 +1,11 @@
-@media (prefers-color-scheme: dark) {
-  :root {
+:root {
     --text: #050505;
     --background: #ffffff;
     --primary: #000000;
-  }
-}
-@media (prefers-color-scheme: light) {
-  :root {
-    --text: #fafafa;
-    --background: #000000;
-    --primary: #ffffff;
-  }
 }
 
 * {
-	font-family: "Courier Prime";
-}
-
-#gdiv {
-	width: 450px;
-	max-width: 95%;
-	display: flex;
-	flex-direction: column;
+	font-family: "Courier Prime", monospace;
 }
 
 h2 {
@@ -36,6 +20,10 @@ body {
     color: var(--text);
 }
 
+a {
+	cursor: pointer;
+}
+
 button, input[type="button"], input[type="submit"] {
 	border: none !important;
 	background: var(--text) !important;
@@ -45,20 +33,11 @@ button, input[type="button"], input[type="submit"] {
 	text-transform: uppercase;
 	font-weight: bold;
 	font-size: 1rem;
-	
-	
+	margin-top: 32px;
+	cursor: pointer;
 }
-#fdiv {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-}
-#title {
-	text-align: center;
-}
-#gdiv > input {
+
+input {
 	background-color: var(--background);
 	border: 1px solid var(--text);
 	color: var(--text);
@@ -66,7 +45,7 @@ button, input[type="button"], input[type="submit"] {
 	font-size: 1rem;
 }
 
-#gdiv > label {
+label {
 	color: var(--text);
 	font-size: 0.8rem;
 	position: relative;
@@ -80,16 +59,46 @@ button, input[type="button"], input[type="submit"] {
 	letter-spacing: 1px;
 }
 
-#gdiv > input:focus {
+input:focus {
 	outline: 1px solid var(--text);
 }
 
-#register{
-	margin-top: 32px;
+#fdiv {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 90vh;
+}
+
+#gdiv {
+	display: flex;
+	flex-direction: column;
+}
+
+#title {
+	text-align: center;
+}
+
+#status {
+	text-align: center;
+	text-transform: uppercase;
 }
 
 #sourcecode {
-    position: fixed;
-    bottom: 5%;
-    right: 2%;
+	padding: 32px 12px 0;
+	display: flex;
+	flex-direction: row;
+	justify-content: end;
+}
+
+#sourcecode > p {
+	margin: 0;
+}
+
+@media (screen-width <= 868px) {
+	#fdiv {
+		width: 80%;
+		max-width: none;
+	}
 }

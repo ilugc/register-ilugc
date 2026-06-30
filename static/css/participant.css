@@ -1,32 +1,13 @@
-#gdiv {
-    grid-template-columns: 1fr 2fr;
-}
-
-#title, #qrlink, #participantlink, #delete, #home, #print, #info {
-    grid-column: 1 / -1;
+#qrlink, #participantlink, #delete, #home, #info {
     text-align: center;
 }
 
-/*table {
-	align-self: center;
-	border-collapse:collapse ;
-	width: 100%;
-}
-#table-container {
-	overflow-x: auto;
-}
-td {
-	padding: 8px 24px;
-	border-bottom: 1px dashed var(--text) !important;
-}
-
-tr:last-of-type>td {
-	border-bottom: none !important;
-}*/
-
 #qr {
     aspect-ratio: 1 / 1;
-    margin-top: 12px;
+}
+
+#qrlink, #participantlink {
+	margin: 6px 0;
 }
 
 #links {
@@ -39,16 +20,17 @@ tr:last-of-type>td {
 	width: fit-content;
 }
 #delete {
-	color: red;
+	color: #df0909;
 }
 @media print {
     .hide-on-print {
     	display: none !important;
     }
-    td {
-    	border-bottom: 1px dashed black !important;
+    label {
+   		color: black;
+    	background: white;
     }
-    tr:last-of-type>td {
-    	border-bottom: none !important;
+    input {
+    	border: 6px solid black;
     }
 }

@@ -1,17 +1,17 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-	<link href="/css/base.css" rel="stylesheet" />
 	<link href="/css/index.css" rel="stylesheet" />
 	{{template "head.tmpl"}}
 </head>
 <body>
 	<div id="fdiv">
 		{{if .IsClosed}}
-			<label id="status">{{.ClosedReasonString}}</label>
+			<p id="status">{{.ClosedReasonString}}</p>
 		{{else}}
 		
-		<div id="gdiv">
-			<h2 id="title">ILUGC Monthly Meet <br/> Registration Form</h2>
+		<main id="gdiv">
+			<h2 id="title">ILUGC Monthly Meet Registration Form</h2>
 			
 			<label for="participant_name">Name</label>
 			<input id="participant_name" type="text" aria-label="Name" />
@@ -29,9 +29,9 @@
 			<input id="participant_place" type="text" aria-label="Place" placeholder="eg: Velachery" />
 			
 			<input id="register" type="button" value="Register" />
-		</div>
+		</main>
 		
-		<label id="status"></label>
+		<p id="status"></p>
 		{{end}}
 	</div>
 	<script src="/js/register.js"></script>
