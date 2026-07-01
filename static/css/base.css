@@ -41,7 +41,7 @@ input {
 	background-color: var(--background);
 	border: 1px solid var(--text);
 	color: var(--text);
-	padding: 8px;
+	padding: 10px;
 	font-size: 1rem;
 }
 
@@ -80,11 +80,6 @@ input:focus {
 	text-align: center;
 }
 
-#status {
-	text-align: center;
-	text-transform: uppercase;
-}
-
 #sourcecode {
 	padding: 32px 12px 0;
 	display: flex;
@@ -96,9 +91,12 @@ input:focus {
 	margin: 0;
 }
 
-@media (screen-width <= 868px) {
-	#fdiv {
-		width: 80%;
-		max-width: none;
+@media (width <= 868px) {
+	#sourcecode > p {
+		font-size: 0.8rem;
+	}
+	#sourcecode > a {
+		font-size: 0.8rem;
+		word-break: break-all;
 	}
 }

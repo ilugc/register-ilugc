@@ -1,4 +1,4 @@
-#qrlink, #participantlink, #delete, #home, #info {
+#qrlink, #participantlink, #info {
     text-align: center;
 }
 
@@ -16,12 +16,15 @@
 	justify-content: space-around;
 	margin-top: 16px;
 }
+
 #home, #delete {
 	width: fit-content;
 }
+
 #delete {
 	color: #df0909;
 }
+
 @media print {
     .hide-on-print {
     	display: none !important;
