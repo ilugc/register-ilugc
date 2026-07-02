@@ -28,6 +28,18 @@
 		</main>
 	</div>
 	<script src="/js/pretty.js"></script>
+	<script>
+		const time_el = document.getElementById("RegisteredTime");
+		
+		time_el.value = new Date(time_el.value).toLocaleString("en-GB", {
+			day: "2-digit",
+			month: "2-digit",
+			year: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+			hour12: true,
+		});
+	</script>
 	{{template "sourcecode.tmpl"}}
 </body>
 </html>

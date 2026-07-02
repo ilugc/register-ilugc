@@ -315,11 +315,7 @@ func (self *Register) Run() error {
 			return
 		}
 
-		t, err := time.Parse(time.RFC3339, participant.RegisteredTime)
-		if err == nil {
-			participant.RegisteredTime = t.Local().Format("02/01/2006 03:04 PM")
-		}
-		
+
 		participantmap := StructToMap(participant, []string{"RegisteredTimeMicro"})
 		type ParticipantResp struct {
 			ParticipantMap map[string]string

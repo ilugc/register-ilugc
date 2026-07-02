@@ -47,13 +47,12 @@ input {
 
 label {
 	color: var(--text);
-	font-size: 0.8rem;
+	font-size: 0.9rem;
 	position: relative;
-	top: 10px;
+	top: 11px;
 	left: 8px;
 	width: fit-content;
 	background: var(--background);
-	text-transform: uppercase;
 	font-weight: bold;
 	padding: 2px;
 	letter-spacing: 1px;
