@@ -5,11 +5,11 @@
 }
 
 * {
-	font-family: "Courier Prime", monospace;
+    font-family: "Courier Prime", monospace;
 }
 
 h2 {
-	font-size: 1.5rem;
+    font-size: 1.5rem;
 }
 
 body {
@@ -21,45 +21,47 @@ body {
 }
 
 a {
-	cursor: pointer;
+    cursor: pointer;
 }
 
-button, input[type="button"], input[type="submit"] {
-	border: none !important;
-	background: var(--text) !important;
-	color: var(--background) !important;
-	padding: 6px !important;
-	letter-spacing: 1px;
-	text-transform: uppercase;
-	font-weight: bold;
-	font-size: 1rem;
-	margin-top: 32px;
-	cursor: pointer;
+button,
+input[type="button"],
+input[type="submit"] {
+    border: none !important;
+    background: var(--text) !important;
+    color: var(--background) !important;
+    padding: 6px !important;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: bold;
+    font-size: 1rem;
+    margin-top: 32px;
+    cursor: pointer;
 }
 
 input {
-	background-color: var(--background);
-	border: 1px solid var(--text);
-	color: var(--text);
-	padding: 10px;
-	font-size: 1rem;
+    background-color: var(--background);
+    border: 1px solid var(--text);
+    color: var(--text);
+    padding: 10px;
+    font-size: 1rem;
 }
 
 label {
-	color: var(--text);
-	font-size: 0.9rem;
-	position: relative;
-	top: 11px;
-	left: 8px;
-	width: fit-content;
-	background: var(--background);
-	font-weight: bold;
-	padding: 2px;
-	letter-spacing: 1px;
+    color: var(--text);
+    font-size: 0.9rem;
+    position: relative;
+    top: 11px;
+    left: 8px;
+    width: fit-content;
+    background: var(--background);
+    font-weight: bold;
+    padding: 2px;
+    letter-spacing: 1px;
 }
 
 input:focus {
-	outline: 1px solid var(--text);
+    outline: 1px solid var(--text);
 }
 
 #fdiv {
@@ -71,31 +73,31 @@ input:focus {
 }
 
 #gdiv {
-	display: flex;
-	flex-direction: column;
+    display: flex;
+    flex-direction: column;
 }
 
 #title {
-	text-align: center;
+    text-align: center;
 }
 
 #sourcecode {
-	padding: 32px 12px 0;
-	display: flex;
-	flex-direction: row;
-	justify-content: end;
+    padding: 32px 12px 0;
+    display: flex;
+    flex-direction: row;
+    justify-content: end;
 }
 
 #sourcecode > p {
-	margin: 0;
+    margin: 0;
 }
 
 @media (width <= 868px) {
-	#sourcecode > p {
-		font-size: 0.8rem;
-	}
-	#sourcecode > a {
-		font-size: 0.8rem;
-		word-break: break-all;
-	}
+    #sourcecode > p {
+        font-size: 0.8rem;
+    }
+    #sourcecode > a {
+        font-size: 0.8rem;
+        word-break: break-all;
+    }
 }

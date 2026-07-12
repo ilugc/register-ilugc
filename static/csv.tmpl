@@ -1,24 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	{{template "head.tmpl"}}
+    {{template "head.tmpl"}}
 </head>
 <body>
-	<div id="fdiv">
-		<main id="gdiv">
-			<h2 id="title">ILUGC Monthly Meet CSV Download</h2>
+    <div id="fdiv">
+        <main id="gdiv">
+            <h2 id="title">CSV Download</h2>
 
-			{{template "admin.tmpl"}}
-			<label for="fromtime">From-Date</label>
-			<input id="fromtime" placeholder="{{ . }}" />
+            {{template "admin.tmpl"}}
+            <label for="fromtime">From-Date</label>
+            <input id="fromtime" placeholder="{{ . }}" />
 
-			<input id="download" type="button" value="Download" />
-		</main>
-		<p id="status"></p>
-	</div>
-	<script src="/js/admin.js"></script>
-	<script src="/js/csv.js"></script>
-	<script src="/js/pretty.js"></script>
-	{{template "sourcecode.tmpl"}}
+            <input id="download" type="button" value="Download" />
+        </main>
+        <p id="status"></p>
+    </div>
+
+    <script src="/js/admin.js"></script>
+    <script src="/js/csv.js"></script>
+    <script src="/js/pretty.js"></script>
+    {{template "sourcecode.tmpl"}}
 </body>
 </html>

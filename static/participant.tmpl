@@ -1,45 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<link href="/css/participant.css" rel="stylesheet" />
-	{{template "head.tmpl"}}
+    <link href="/css/participant.css" rel="stylesheet" />
+    {{template "head.tmpl"}}
 </head>
 <body>
-	<div id="fdiv">
-		<main id="gdiv">
-			<h2 id="title">ILUGC Monthly Meet Registration Details</h2>
-			
-			{{ range $key, $value := .ParticipantMap }}
-				<label for="{{- $key -}}">{{- $key -}}</label>
-				<input id="{{- $key -}}" type="text" value="{{- $value -}}" readonly/>
-			{{ end }}
-			
-			<a id="qrlink" href="{{- .QrCodeUrl -}}" target="_blank" aria-label="QR Code Link">
-				<img id="qr" src="{{- .QrCodeUrl -}}" alt="QR Code" />
-			</a>
-			<a id="participantlink" href="{{- .ParticipantUrl -}}">Registration Details</a>
-			<p id="info">Unregister if your plan changes before registration closing time</p>
+    <div id="fdiv">
+        <main id="gdiv">
+            <h2 id="title">Registration Details</h2>
 
-			<button id="print" class="hide-on-print" type="button" value="Print" onclick="print()">Print</button>
-			<div id="links">
-				<a id="delete" class="hide-on-print" href="{{- .UnregisterUrl -}}">Unregister</a>
-				<a id="home" class="hide-on-print" href="/">Home</a>
-			</div>
-		</main>
-	</div>
-	<script src="/js/pretty.js"></script>
-	<script>
-		const time_el = document.getElementById("RegisteredTime");
-		
-		time_el.value = new Date(time_el.value).toLocaleString("en-GB", {
-			day: "2-digit",
-			month: "2-digit",
-			year: "numeric",
-			hour: "2-digit",
-			minute: "2-digit",
-			hour12: true,
-		});
-	</script>
-	{{template "sourcecode.tmpl"}}
+            {{ range $key, $value := .ParticipantMap }}
+                <label for="{{- $key -}}">{{- $key -}}</label>
+                <input id="{{- $key -}}" type="text" value="{{- $value -}}" readonly/>
+            {{ end }}
+
+            <a id="qrlink" href="{{- .QrCodeUrl -}}" target="_blank" aria-label="QR Code Link">
+                <img id="qr" src="{{- .QrCodeUrl -}}" alt="QR Code" />
+            </a>
+            <a id="participantlink" href="{{- .ParticipantUrl -}}">Registration Details</a>
+            <p id="info">Unregister if your plan changes before registration closing time</p>
+
+            <button id="print" class="hide-on-print" type="button" value="Print" onclick="print()">Print</button>
+            <div id="links">
+                <a id="delete" class="hide-on-print" href="{{- .UnregisterUrl -}}">Unregister</a>
+                <a id="home" class="hide-on-print" href="/">Home</a>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/pretty.js"></script>
+    <script>
+        const time_el = document.getElementById("RegisteredTime");
+
+        time_el.value = new Date(time_el.value).toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+        });
+    </script>
+    {{template "sourcecode.tmpl"}}
 </body>
 </html>

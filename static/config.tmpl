@@ -1,26 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	{{template "head.tmpl"}}
+    {{template "head.tmpl"}}
 </head>
 <body>
-	<div id="fdiv">
-		<main id="gdiv">
-			<h2 id="title">ILUGC Monthly Meet Site config</h2>
-			{{template "admin.tmpl"}}
+    <div id="fdiv">
+        <main id="gdiv">
+            <h2 id="title">Site config</h2>
+            {{template "admin.tmpl"}}
 
-			{{ range $key, $value := . }}
-				<label for="{{- $key -}}">{{- $key -}}</label>
-				<input id="{{- $key -}}" class="form" placeholder="{{- $value -}}" />
-			{{ end }}
+            {{ range $key, $value := . }}
+                <label for="{{- $key -}}">{{- $key -}}</label>
+                <input id="{{- $key -}}" class="form" placeholder="{{- $value -}}" />
+            {{ end }}
 
-			<input id="change" type="button" value="Change" />
-		</main>
-		<p id="status"></p>
-	</div>
-	<script src="/js/admin.js"></script>
-	<script src="/js/config.js"></script>
-	<script src="/js/pretty.js"></script>
-	{{template "sourcecode.tmpl"}}
+            <input id="change" type="button" value="Change" />
+        </main>
+        <p id="status"></p>
+    </div>
+
+    <script src="/js/admin.js"></script>
+    <script src="/js/config.js"></script>
+    <script src="/js/pretty.js"></script>
+    {{template "sourcecode.tmpl"}}
 </body>
 </html>

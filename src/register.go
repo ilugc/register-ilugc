@@ -208,7 +208,7 @@ func (self *Register) Run() error {
 
 	http.HandleFunc("/{$}", func(response http.ResponseWriter, request *http.Request) {
 		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/index.tmpl",
-			self.Config.Static + "/sourcecode.tmpl", 
+			self.Config.Static + "/sourcecode.tmpl",
 			self.Config.Static + "/head.tmpl"))
 		type IndexResp struct {
 			IsClosed bool
@@ -328,7 +328,7 @@ func (self *Register) Run() error {
 			QrCodeUrl: "/qr/" + chksum,
 			UnregisterUrl: "/delete/" + chksum}
 		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/participant.tmpl",
-			self.Config.Static + "/sourcecode.tmpl", 
+			self.Config.Static + "/sourcecode.tmpl",
 			self.Config.Static + "/head.tmpl"))
 		if err := tmpl.Execute(response, participantresp); err != nil {
 			G.logger.Println(err)
@@ -346,7 +346,7 @@ func (self *Register) Run() error {
 			return
 		}
 		tmpl := template.Must(template.ParseFiles(self.Config.Static + "/unregister.tmpl",
-			self.Config.Static + "/sourcecode.tmpl", 
+			self.Config.Static + "/sourcecode.tmpl",
 			self.Config.Static + "/head.tmpl"))
 		if err := tmpl.Execute(response, nil); err != nil {
 			G.logger.Println(err)
@@ -385,7 +385,7 @@ func (self *Register) Run() error {
 			configmap["DefaultMax"] += " (" + strconv.FormatInt(count, 10) + ")"
 			tmpl := template.Must(template.ParseFiles(self.Config.Static + "/config.tmpl",
 				self.Config.Static + "/admin.tmpl",
-				self.Config.Static + "/sourcecode.tmpl", 
+				self.Config.Static + "/sourcecode.tmpl",
 				self.Config.Static + "/head.tmpl"))
 			if err := tmpl.Execute(response, configmap); err != nil {
 				G.logger.Println(err)
@@ -447,7 +447,7 @@ func (self *Register) Run() error {
 			if len(hashdata) <= 0 {
 				tmpl := template.Must(template.ParseFiles(self.Config.Static + "/csv.tmpl",
 					self.Config.Static + "/admin.tmpl",
-					self.Config.Static + "/sourcecode.tmpl", 
+					self.Config.Static + "/sourcecode.tmpl",
 					self.Config.Static + "/head.tmpl"))
 				if err := tmpl.Execute(response, time.Now().UTC().Format(time.RFC3339)); err != nil {
 					G.logger.Println(err)

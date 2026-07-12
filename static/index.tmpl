@@ -1,40 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<link href="/css/index.css" rel="stylesheet" />
-	{{template "head.tmpl"}}
+    <link href="/css/index.css" rel="stylesheet" />
+    {{template "head.tmpl"}}
 </head>
 <body>
-	<div id="fdiv">
-		{{if .IsClosed}}
-			<p id="status">{{.ClosedReasonString}}</p>
-		{{else}}
-		
-		<main id="gdiv">
-			<h2 id="title">ILUGC Monthly Meet Registration Form</h2>
-			
-			<label for="participant_name">Name</label>
-			<input id="participant_name" type="text" aria-label="Name" />
-			
-			<label for="participant_email">Email</label>
-			<input id="participant_email" type="email" aria-label="Email" />
-			
-			<label for="participant_mobile">Mobile</label>
-			<input id="participant_mobile" type="tel" aria-label="Mobile" />
-			
-			<label for="participant_org">College/Company Name</label>
-			<input id="participant_org" type="text" aria-label="College/Company Name" />
-			
-			<label for="participant_place">Place</label>
-			<input id="participant_place" type="text" aria-label="Place" placeholder="eg: Velachery" />
-			
-			<input id="register" type="button" value="Register" />
-		</main>
-		
-		<p id="status"></p>
-		{{end}}
-	</div>
-	<script src="/js/register.js"></script>
-	{{template "sourcecode.tmpl"}}
+    <div id="fdiv">
+        {{if .IsClosed}}
+            <p id="status">{{.ClosedReasonString}}</p>
+        {{else}}
+
+        <main id="gdiv">
+            <h2 id="title">Registration Form</h2>
+
+            <label for="participant_name">Name</label>
+            <input id="participant_name" type="text" aria-label="Name" />
+
+            <label for="participant_email">Email</label>
+            <input id="participant_email" type="email" aria-label="Email" />
+
+            <label for="participant_mobile">Mobile</label>
+            <input id="participant_mobile" type="tel" aria-label="Mobile" />
+
+            <label for="participant_org">College/Company Name</label>
+            <input id="participant_org" type="text" aria-label="College/Company Name" />
+
+            <label for="participant_place">Place</label>
+            <input id="participant_place" type="text" aria-label="Place" placeholder="eg: Velachery" />
+
+            <input id="register" type="button" value="Register" />
+        </main>
+
+        <p id="status"></p>
+        {{end}}
+    </div>
+
+    <script src="/js/register.js"></script>
+    {{template "sourcecode.tmpl"}}
 </body>
 </html>
