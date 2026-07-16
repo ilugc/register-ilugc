@@ -372,7 +372,7 @@ func (self *Register) Run() error {
 					config.OpenedTime = time.UnixMicro(config.OpenedTimeMicro).Format(time.RFC3339)
 				}
 			}
-			configmap := StructToMap(config, []string{"Filename", "Hostport", "Static", "OpenedTimeMicro", "AdminUsername", "AdminPassword"})
+			configmap := StructToMap(config, []string{"Filename", "Hostport", "Static", "OpenedTime", "OpenedTimeMicro", "AdminUsername", "AdminPassword"})
 			count, err := self.Db.ParticipantCount(self.Config.OpenedTimeMicro)
 			if err != nil {
 				G.logger.Println(err)
@@ -407,23 +407,14 @@ func (self *Register) Run() error {
 			return
 		}
 		
+		stopRegOrig := self.Config.StopRegistration
 		StructSetFromMap(self.Config, body, []string{})
-		if len(self.Config.OpenedTime) > 0 {
-			if self.Config.OpenedTime == "reset" {
-				self.Config.OpenedTime = ""
-				self.Config.OpenedTimeMicro = 0
-				lastregisteredtime, _ := self.Db.LastRegisteredTime()
-				if lastregisteredtime > 0 {
-					self.Config.OpenedTimeMicro = lastregisteredtime + 1
-				}
-			} else {
-				openedtime, err := time.Parse(time.RFC3339, self.Config.OpenedTime)
-				if err != nil {
-					G.logger.Println(err)
-					http.Error(response, err.Error(), http.StatusBadRequest)
-					return
-				}
-				self.Config.OpenedTimeMicro = openedtime.UnixMicro()
+		if stopRegOrig != self.Config.StopRegistration {
+			self.Config.OpenedTime = ""
+			self.Config.OpenedTimeMicro = 0
+			lastregisteredtime, _ := self.Db.LastRegisteredTime()
+			if lastregisteredtime > 0 {
+				self.Config.OpenedTimeMicro = lastregisteredtime + 1
 			}
 		}
 
