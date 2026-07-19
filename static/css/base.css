@@ -75,6 +75,7 @@ input:focus {
 #gdiv {
     display: flex;
     flex-direction: column;
+    min-width: 25%;
 }
 
 #title {
